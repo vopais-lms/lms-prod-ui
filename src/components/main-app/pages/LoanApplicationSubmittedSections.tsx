@@ -27,7 +27,7 @@ import { buildStandardFieldGroups } from '../../../constants/loanApplicationFiel
 import { DataTable } from '../shared/DataTable';
 import { KeyValueGrid } from '../shared/KeyValueGrid';
 import { LmsFormioReadOnlyForm } from '../shared/LmsFormioReadOnlyForm';
-import { StatusBadge } from '../shared/StatusBadge';
+import { repaymentScheduleTableColumns } from '../shared/repaymentScheduleColumns';
 
 type SectionListState<T> = {
   data: T[];
@@ -466,55 +466,7 @@ export function LoanApplicationSubmittedSections({
         }
         return (
           <DataTable
-            columns={[
-              { key: 'id', label: 'ID' },
-              {
-                key: 'repayment_due_date',
-                label: 'Due date',
-                render: (item) => formatDateTime(item.repayment_due_date),
-              },
-              {
-                key: 'repayment_amount',
-                label: 'EMI amount',
-                render: (item) => formatMoney(item.repayment_amount),
-              },
-              {
-                key: 'principal_breakup',
-                label: 'Principal',
-                render: (item) => formatMoney(item.principal_breakup),
-              },
-              {
-                key: 'interest_breakup',
-                label: 'Interest',
-                render: (item) => formatMoney(item.interest_breakup),
-              },
-              {
-                key: 'bpi_breakup',
-                label: 'BPI',
-                render: (item) => formatMoney(item.bpi_breakup),
-              },
-              { key: 'type_of_repayment', label: 'Type' },
-              {
-                key: 'status',
-                label: 'Status',
-                render: (item) => (
-                  <StatusBadge
-                    status={item.status ? 'approved' : 'pending'}
-                    label={item.status ? 'Paid' : 'Unpaid'}
-                  />
-                ),
-              },
-              {
-                key: 'created_at',
-                label: 'Created',
-                render: (item) => formatDateTime(item.created_at),
-              },
-              {
-                key: 'updated_at',
-                label: 'Updated',
-                render: (item) => formatDateTime(item.updated_at),
-              },
-            ]}
+            columns={repaymentScheduleTableColumns}
             data={repaymentSchedules.data}
             loading={repaymentSchedules.loading}
             page={repaymentSchedules.page}
