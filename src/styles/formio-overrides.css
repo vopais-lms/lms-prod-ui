@@ -1,0 +1,103 @@
+/* Form.io builder polish — Bootstrap 5 is required (loaded on LoanTypeDetailPage) */
+.loan-type-formio {
+  --bs-primary: #2563eb;
+  --bs-primary-rgb: 37, 99, 235;
+  --bs-link-color: #2563eb;
+  --bs-link-hover-color: #1d4ed8;
+  --bs-border-color: #e5e7eb;
+  --bs-body-font-family: var(--font-family, Inter, -apple-system, BlinkMacSystemFont, sans-serif);
+}
+
+.loan-type-formio .formio.builder.formbuilder {
+  min-height: 70vh;
+  margin: 0;
+}
+
+.loan-type-formio .formio.builder.formbuilder > .row {
+  --formio-sidebar-width: 260px;
+  display: flex;
+  flex-wrap: nowrap;
+  margin: 0;
+  gap: 0;
+}
+
+.loan-type-formio .formcomponents {
+  flex: 0 0 var(--formio-sidebar-width) !important;
+  width: var(--formio-sidebar-width) !important;
+  max-width: var(--formio-sidebar-width) !important;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  padding: 0.75rem;
+}
+
+.loan-type-formio .formarea {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  padding: 0.75rem;
+  min-height: 420px;
+}
+
+.loan-type-formio .builder-sidebar_search {
+  margin-bottom: 0.75rem;
+}
+
+.loan-type-formio .builder-sidebar .accordion-item {
+  border-color: #e5e7eb;
+}
+
+.loan-type-formio .builder-sidebar .builder-group-button {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.loan-type-formio .formcomponents .formcomponent.btn-outline-primary {
+  --bs-btn-color: #374151;
+  --bs-btn-border-color: #e5e7eb;
+  --bs-btn-hover-color: #1d4ed8;
+  --bs-btn-hover-bg: #eff6ff;
+  --bs-btn-hover-border-color: #bfdbfe;
+  --bs-btn-active-color: #1d4ed8;
+  --bs-btn-active-bg: #dbeafe;
+  --bs-btn-active-border-color: #93c5fd;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+
+.loan-type-formio .drag-container.formio-builder-form {
+  min-height: 360px;
+  border-radius: 0.5rem;
+}
+
+.loan-type-formio .drag-and-drop-alert {
+  border-radius: 0.5rem;
+  color: #6b7280;
+}
+
+.loan-type-formio .formcomponents .formcomponent {
+  width: 100%;
+}
+
+.loan-type-formio .builder-sidebar_search {
+  width: 100%;
+}
+
+.loan-type-formio .btn-primary {
+  --bs-btn-bg: #2563eb;
+  --bs-btn-border-color: #2563eb;
+  --bs-btn-hover-bg: #1d4ed8;
+  --bs-btn-hover-border-color: #1d4ed8;
+  --bs-btn-active-bg: #1d4ed8;
+  --bs-btn-active-border-color: #1d4ed8;
+}
+
+/* Hide raw JSON editor on component hover */
+.loan-type-formio .component-settings-button-edit-json {
+  display: none !important;
+}
+
+/* Form.io modals above app chrome */
+.formio-dialog {
+  z-index: 2000 !important;
+}
