@@ -11,10 +11,10 @@ type LoginPageProps = {
 
 export function LoginPage({ errorMessage: externalError }: LoginPageProps) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem('remembered_username') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') === 'true');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(externalError || '');
 
@@ -28,6 +28,10 @@ export function LoginPage({ errorMessage: externalError }: LoginPageProps) {
       const menuItems = await completeLogin(res);
       if (rememberMe) {
         localStorage.setItem('remember_me', 'true');
+        localStorage.setItem('remembered_username', username.trim());
+      } else {
+        localStorage.removeItem('remember_me');
+        localStorage.removeItem('remembered_username');
       }
       navigate(`/app${getDefaultAppRoute(menuItems)}`);
     } catch (err: any) {

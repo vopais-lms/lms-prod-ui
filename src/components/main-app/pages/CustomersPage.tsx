@@ -8,6 +8,7 @@ import { FormModal, FormField, FormInput } from '../shared/FormModal';
 import { StatusBadge } from '../shared/StatusBadge';
 import { customersApi } from '../../../apis/customers';
 import type { Customer } from '../../../apis/types';
+import { maskEmail, maskPhone } from '../../../utils/mask';
 
 export function CustomersPage() {
   const navigate = useNavigate();
@@ -71,7 +72,14 @@ export function CustomersPage() {
         await customersApi.update(editItem.eid, form);
       } else {
         const created = await customersApi.create(form);
-        await customersApi.sendOtpsForVerification(created.eid);
+        // OTP dispatch is best-effort: the customer is already saved, so a failure
+        // here (SMS/email/Redis not configured) must not hide the new record or
+        // block the modal from closing.
+        try {
+          await customersApi.sendOtpsForVerification(created.eid);
+        } catch (otpErr) {
+          console.error('Customer created, but sending verification OTPs failed', otpErr);
+        }
       }
       setModalOpen(false);
       fetchCustomers();
@@ -97,8 +105,8 @@ export function CustomersPage() {
 
   const columns = [
     { key: 'name', label: 'Name', render: (item: Customer) => <span className="font-medium">{item.name}</span> },
-    { key: 'email', label: 'Email' },
-    { key: 'linked_phone_number', label: 'Phone' },
+    { key: 'email', label: 'Email', render: (item: Customer) => <span>{maskEmail(item.email)}</span> },
+    { key: 'linked_phone_number', label: 'Phone', render: (item: Customer) => <span>{maskPhone(item.linked_phone_number)}</span> },
     {
       key: 'is_active',
       label: 'Status',

@@ -7,6 +7,7 @@ import { FormModal, FormField, FormInput } from '../shared/FormModal';
 import { StatusBadge } from '../shared/StatusBadge';
 import { branchesApi } from '../../../apis/branches';
 import type { Branch } from '../../../apis/types';
+import { digitsOnly, phoneChars, isValidPhone, isValidPincode } from '../../../utils/formValidation';
 
 export function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -17,6 +18,7 @@ export function BranchesPage() {
   const [editItem, setEditItem] = useState<Branch | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<Branch | null>(null);
 
   const emptyForm = {
@@ -44,6 +46,7 @@ export function BranchesPage() {
     setEditItem(null);
     setForm(emptyForm);
     setSubmitError(null);
+    setFieldErrors({});
     setModalOpen(true);
   };
 
@@ -56,10 +59,20 @@ export function BranchesPage() {
       pincode: item.pincode, phone_number: item.phone_number, is_active: item.is_active,
     });
     setSubmitError(null);
+    setFieldErrors({});
     setModalOpen(true);
   };
 
+  const validate = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!isValidPincode(form.pincode)) errors.pincode = 'Pincode must be 6 digits.';
+    if (!isValidPhone(form.phone_number)) errors.phone_number = 'Enter a valid phone number (7–15 digits, optional +).';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async () => {
+    if (!validate()) return;
     setSubmitLoading(true);
     setSubmitError(null);
     try {
@@ -88,7 +101,10 @@ export function BranchesPage() {
     }
   };
 
-  const updateForm = (field: string, value: any) => setForm((prev) => ({ ...prev, [field]: value }));
+  const updateForm = (field: string, value: any) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
+  };
 
   const columns = [
     { key: 'name', label: 'Branch Name', render: (item: Branch) => <span className="font-medium">{item.name}</span> },
@@ -185,13 +201,27 @@ export function BranchesPage() {
             <FormField label="Country" required>
               <FormInput value={form.country} onChange={(v) => updateForm('country', v)} />
             </FormField>
-            <FormField label="Pincode" required>
-              <FormInput value={form.pincode} onChange={(v) => updateForm('pincode', v)} />
+            <FormField label="Pincode" required error={fieldErrors.pincode}>
+              <FormInput
+                value={form.pincode}
+                onChange={(v) => updateForm('pincode', v)}
+                inputMode="numeric"
+                maxLength={6}
+                sanitize={digitsOnly}
+                placeholder="302001"
+              />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Phone" required>
-              <FormInput value={form.phone_number} onChange={(v) => updateForm('phone_number', v)} placeholder="+91..." />
+            <FormField label="Phone" required error={fieldErrors.phone_number}>
+              <FormInput
+                value={form.phone_number}
+                onChange={(v) => updateForm('phone_number', v)}
+                inputMode="tel"
+                maxLength={16}
+                sanitize={phoneChars}
+                placeholder="+91..."
+              />
             </FormField>
             <FormField label="Status">
               <div className="flex items-center gap-3 pt-2">

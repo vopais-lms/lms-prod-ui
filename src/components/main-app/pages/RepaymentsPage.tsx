@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { loanApplicationsApi } from '../../../apis/loanApplications';
 import { loanTypesApi } from '../../../apis/loanTypes';
@@ -39,7 +40,10 @@ function loanApplicationStatusBadge(status: string) {
 }
 
 export function RepaymentsPage() {
-  const [selectedLoan, setSelectedLoan] = useState<LoanApplication | null>(null);
+  // Drive the selected loan through the URL (?loan=<eid>) so the browser
+  // Back/Forward buttons navigate between the list and a loan's schedule.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedLoanEid = searchParams.get('loan');
 
   const [applications, setApplications] = useState<LoanApplication[]>([]);
   const [loanTypes, setLoanTypes] = useState<Record<number, string>>({});
@@ -53,6 +57,13 @@ export function RepaymentsPage() {
   const [schedulesPage, setSchedulesPage] = useState(1);
   const [schedulesTotalRecords, setSchedulesTotalRecords] = useState(0);
   const [schedulesError, setSchedulesError] = useState<string | null>(null);
+
+  // Resolve the loan object from the already-loaded list for nicer header text.
+  // May be null on a direct/deep link — the schedule only needs the eid, so we
+  // intentionally do not fetch the full loan (that endpoint can block on S3).
+  const selectedLoan = selectedLoanEid
+    ? applications.find((app) => app.eid === selectedLoanEid) || null
+    : null;
 
   const fetchApplications = useCallback(async () => {
     setLoansLoading(true);
@@ -69,14 +80,14 @@ export function RepaymentsPage() {
   }, [loansPage]);
 
   const fetchRepaymentSchedules = useCallback(async () => {
-    if (!selectedLoan) {
+    if (!selectedLoanEid) {
       return;
     }
 
     setSchedulesLoading(true);
     setSchedulesError(null);
     try {
-      const res = await loanApplicationsApi.listRepaymentSchedules(selectedLoan.eid, {
+      const res = await loanApplicationsApi.listRepaymentSchedules(selectedLoanEid, {
         page: schedulesPage,
         per_page: 10,
       });
@@ -87,7 +98,7 @@ export function RepaymentsPage() {
     } finally {
       setSchedulesLoading(false);
     }
-  }, [selectedLoan, schedulesPage]);
+  }, [selectedLoanEid, schedulesPage]);
 
   useEffect(() => {
     fetchApplications();
@@ -110,23 +121,23 @@ export function RepaymentsPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedLoan) {
+    if (selectedLoanEid) {
       fetchRepaymentSchedules();
     }
-  }, [fetchRepaymentSchedules, selectedLoan]);
+  }, [fetchRepaymentSchedules, selectedLoanEid]);
 
   const handleSelectLoan = (loan: LoanApplication) => {
-    setSelectedLoan(loan);
     setSchedulesPage(1);
     setSchedules([]);
     setSchedulesError(null);
+    setSearchParams({ loan: loan.eid });
   };
 
   const handleBackToLoans = () => {
-    setSelectedLoan(null);
     setSchedules([]);
     setSchedulesPage(1);
     setSchedulesError(null);
+    setSearchParams({});
   };
 
   const loanColumns = [
@@ -175,11 +186,12 @@ export function RepaymentsPage() {
     },
   ];
 
-  if (selectedLoan) {
+  if (selectedLoanEid) {
+    const loanTypeLabel = selectedLoan ? loanTypes[selectedLoan.loan_type_id] || 'Loan' : 'Loan';
     return (
       <PageShell
         title="Repayment schedule"
-        subtitle={`Loan ${selectedLoan.eid.slice(0, 8)}… · ${loanTypes[selectedLoan.loan_type_id] || 'Loan'}`}
+        subtitle={`Loan ${selectedLoanEid.slice(0, 8)}… · ${loanTypeLabel}`}
         breadcrumbs={[
           { label: 'Repayments', onClick: handleBackToLoans },
           { label: 'Repayment schedule' },

@@ -9,8 +9,8 @@ export type LoanTypeDetailSection = {
 export const LOAN_TYPE_DETAIL_SECTIONS: LoanTypeDetailSection[] = [
   {
     id: 'forms',
-    label: 'Form builder',
-    description: 'Configure Form.io schemas for each workflow',
+    label: 'Loan Application Customized Form',
+    description: 'Design the custom application form fields borrowers fill for this loan product',
   },
   {
     id: 'loan-approvals',

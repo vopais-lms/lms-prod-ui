@@ -4,7 +4,6 @@ import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-
 import { Sidebar } from './main-app/original/sidebar';
 import type { UserRole } from './main-app/original/sidebar';
 import { GlobalHeader } from './main-app/original/global-header';
-import { UniversalSearch } from './main-app/original/universal-search';
 import { ExecutiveCommand } from './main-app/original/executive-command';
 import { LoanOfficerWorkQueue } from './main-app/original/loan-officer-workqueue';
 import { PortfolioView } from './main-app/original/portfolio-view';
@@ -38,7 +37,6 @@ export function MainAppShell() {
   const location = useLocation();
   const [userRole, setUserRole] = useState<UserRole>('loan_officer');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => getStoredMenuItems());
 
@@ -69,18 +67,6 @@ export function MainAppShell() {
 
     loadMenu();
   }, [navigate]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const getUserName = (role: UserRole) => {
     switch (role) {
@@ -155,10 +141,7 @@ export function MainAppShell() {
           userRole={getUserRoleLabel(userRole)}
           userName={getUserName(userRole)}
           branch={userRole === 'loan_officer' ? 'Jaipur' : undefined}
-          notificationCount={userRole === 'loan_officer' ? 4 : 3}
-          flagCount={userRole === 'loan_officer' ? 2 : 5}
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onSearchClick={() => setSearchOpen(true)}
           onLogout={handleLogout}
           sidebarCollapsed={sidebarCollapsed}
         />
@@ -218,13 +201,6 @@ export function MainAppShell() {
           </Routes>
         </main>
       </div>
-
-      <UniversalSearch
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        userRole={getUserRoleLabel(userRole)}
-      />
-
     </div>
   );
 }

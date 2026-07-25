@@ -9,6 +9,8 @@ import { employeesApi } from '../../../apis/employees';
 import { branchesApi } from '../../../apis/branches';
 import { designationsApi } from '../../../apis/designations';
 import type { Branch, Employee, EmployeeDesignation } from '../../../apis/types';
+import { phoneChars, isValidPhone, isValidEmail, isValidEmployeeId } from '../../../utils/formValidation';
+import { maskEmail, maskPhone } from '../../../utils/mask';
 
 const LOOKUP_PAGE_SIZE = 100;
 
@@ -25,6 +27,7 @@ export function EmployeesPage() {
   const [detailItem, setDetailItem] = useState<Employee | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [supervisorModalOpen, setSupervisorModalOpen] = useState(false);
   const [supervisorTarget, setSupervisorTarget] = useState<Employee | null>(null);
   const [supervisorOptions, setSupervisorOptions] = useState<Employee[]>([]);
@@ -142,6 +145,7 @@ export function EmployeesPage() {
     setEditItem(null);
     setForm({ employee_id: '', branch_id: '', designation_id: '', date_of_joining: '', first_name: '', last_name: '', email: '', phone_number: '' });
     setSubmitError(null);
+    setFieldErrors({});
     setModalOpen(true);
     await loadLookupOptions();
   };
@@ -159,8 +163,18 @@ export function EmployeesPage() {
       phone_number: item.phone_number,
     });
     setSubmitError(null);
+    setFieldErrors({});
     setModalOpen(true);
     await loadLookupOptions();
+  };
+
+  const validate = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!isValidEmployeeId(form.employee_id)) errors.employee_id = 'Use a mix of letters and numbers (e.g. EMP-001).';
+    if (!isValidEmail(form.email)) errors.email = 'Enter a valid email address (must include @).';
+    if (!isValidPhone(form.phone_number)) errors.phone_number = 'Enter a valid phone number (7–15 digits, optional +).';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async () => {
@@ -168,6 +182,7 @@ export function EmployeesPage() {
       setSubmitError('Please select a branch and designation.');
       return;
     }
+    if (!validate()) return;
 
     setSubmitLoading(true);
     setSubmitError(null);
@@ -230,8 +245,8 @@ export function EmployeesPage() {
         <span className="font-medium">{item.first_name} {item.last_name}</span>
       ),
     },
-    { key: 'email', label: 'Email' },
-    { key: 'phone_number', label: 'Phone' },
+    { key: 'email', label: 'Email', render: (item: Employee) => <span>{maskEmail(item.email)}</span> },
+    { key: 'phone_number', label: 'Phone', render: (item: Employee) => <span>{maskPhone(item.phone_number)}</span> },
     {
       key: 'is_active',
       label: 'Status',
@@ -282,7 +297,10 @@ export function EmployeesPage() {
     },
   ];
 
-  const updateForm = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+  const updateForm = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
+  };
 
   return (
     <PageShell
@@ -329,15 +347,22 @@ export function EmployeesPage() {
               <FormInput value={form.last_name} onChange={(v) => updateForm('last_name', v)} placeholder="Last name" />
             </FormField>
           </div>
-          <FormField label="Employee ID" required>
+          <FormField label="Employee ID" required error={fieldErrors.employee_id}>
             <FormInput value={form.employee_id} onChange={(v) => updateForm('employee_id', v)} placeholder="EMP-001" />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Email" required>
-              <FormInput value={form.email} onChange={(v) => updateForm('email', v)} placeholder="email@company.com" type="email" />
+            <FormField label="Email" required error={fieldErrors.email}>
+              <FormInput value={form.email} onChange={(v) => updateForm('email', v)} placeholder="email@company.com" type="email" inputMode="email" />
             </FormField>
-            <FormField label="Phone" required>
-              <FormInput value={form.phone_number} onChange={(v) => updateForm('phone_number', v)} placeholder="+91..." />
+            <FormField label="Phone" required error={fieldErrors.phone_number}>
+              <FormInput
+                value={form.phone_number}
+                onChange={(v) => updateForm('phone_number', v)}
+                inputMode="tel"
+                maxLength={16}
+                sanitize={phoneChars}
+                placeholder="+91..."
+              />
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -407,8 +432,8 @@ export function EmployeesPage() {
               {[
                 ['Name', `${detailItem.first_name} ${detailItem.last_name}`],
                 ['Employee ID', detailItem.employee_id],
-                ['Email', detailItem.email],
-                ['Phone', detailItem.phone_number],
+                ['Email', maskEmail(detailItem.email)],
+                ['Phone', maskPhone(detailItem.phone_number)],
                 ['Branch', getBranchLabel(detailItem.branch_id)],
                 ['Designation', getDesignationLabel(detailItem.designation_id)],
                 ['Date of Joining', detailItem.date_of_joining],

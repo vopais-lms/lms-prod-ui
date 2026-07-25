@@ -1,15 +1,12 @@
 // @ts-nocheck
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, Bell, Flag, Menu, User } from 'lucide-react';
+import { Menu, User } from 'lucide-react';
 
 interface GlobalHeaderProps {
   userRole: string;
   userName: string;
   branch?: string;
-  notificationCount?: number;
-  flagCount?: number;
   onToggleSidebar: () => void;
-  onSearchClick: () => void;
   onLogout: () => void;
   sidebarCollapsed?: boolean;
 }
@@ -18,10 +15,7 @@ export function GlobalHeader({
   userRole,
   userName,
   branch,
-  notificationCount = 0,
-  flagCount = 0,
   onToggleSidebar,
-  onSearchClick,
   onLogout,
   sidebarCollapsed = false,
 }: GlobalHeaderProps) {
@@ -69,38 +63,7 @@ export function GlobalHeader({
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="flex-1 flex justify-center">
-          <button
-            onClick={onSearchClick}
-            className="w-full max-w-[400px] h-9 px-3 flex items-center gap-2 bg-[#F3F4F6] hover:bg-[#E5E7EB] rounded-lg text-left transition-colors"
-          >
-            <Search className="w-4 h-4 text-[#6B7280]" />
-            <span className="flex-1 text-sm text-[#9CA3AF]">
-              Search loans, customers, PAN...
-            </span>
-            <kbd className="px-2 py-0.5 text-xs bg-[#E5E7EB] text-[#6B7280] rounded">⌘K</kbd>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button className="relative p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-lg">
-            <Bell className="w-5 h-5" />
-            {notificationCount > 0 && (
-              <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center text-xs font-semibold bg-[#DC2626] text-white rounded-full">
-                {notificationCount}
-              </span>
-            )}
-          </button>
-
-          <button className="relative p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-lg">
-            <Flag className="w-5 h-5" />
-            {flagCount > 0 && (
-              <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center text-xs font-semibold bg-[#DC2626] text-white rounded-full">
-                {flagCount}
-              </span>
-            )}
-          </button>
-
+        <div className="flex flex-1 items-center justify-end gap-4">
           <div ref={profileMenuRef} className="relative pl-4 border-l border-[#E5E7EB]">
             <button
               type="button"

@@ -288,7 +288,7 @@ export function LoanTypeDetailPage() {
               <div className="loan-type-formio relative min-h-[75vh] p-0 sm:p-1">
                 {loading ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 text-sm text-[#6B7280]">
-                    Loading form builder...
+                    Loading form...
                   </div>
                 ) : null}
                 {!loading && (

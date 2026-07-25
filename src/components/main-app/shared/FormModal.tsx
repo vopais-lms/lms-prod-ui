@@ -157,6 +157,9 @@ export function FormInput({
   type = 'text',
   disabled = false,
   step,
+  inputMode,
+  maxLength,
+  sanitize,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -164,15 +167,21 @@ export function FormInput({
   type?: string;
   disabled?: boolean;
   step?: string | number;
+  inputMode?: 'text' | 'numeric' | 'tel' | 'decimal' | 'email' | 'search' | 'url' | 'none';
+  maxLength?: number;
+  /** Optional per-keystroke filter (e.g. digitsOnly) to "lock" the input. */
+  sanitize?: (raw: string) => string;
 }) {
   return (
     <input
       type={type}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => onChange(sanitize ? sanitize(e.target.value) : e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
       step={step}
+      inputMode={inputMode}
+      maxLength={maxLength}
       className="w-full px-3 py-2 text-sm border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
     />
   );
