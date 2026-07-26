@@ -157,6 +157,7 @@ export interface LoanApplication extends LoanApplicationTerms {
   customer_eid: string;
   loan_officer_eid: string;
   status: LoanApplicationStatus;
+  is_npa: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -366,4 +367,29 @@ export interface CustomerDocument {
   is_verified: boolean;
   verification_note?: string | null;
   extraction_status?: string;
+}
+
+// --- Analytics / Reports ---
+
+/** Month key in MM/YYYY form, e.g. "07/2026". */
+export type AnalyticsMonthKey = string;
+
+export interface AnalyticsMonthPoint {
+  month: AnalyticsMonthKey;
+  value: number;
+}
+
+export interface AnalyticsSeriesResponse {
+  start_month: AnalyticsMonthKey;
+  end_month: AnalyticsMonthKey;
+  data: AnalyticsMonthPoint[];
+}
+
+export interface AnalyticsRatiosResponse {
+  healthy_count: number;
+  npa_count: number;
+  healthy_to_npa_ratio: number | null;
+  under_process_count: number;
+  disbursed_count: number;
+  under_process_to_disbursed_ratio: number | null;
 }

@@ -12,3 +12,4 @@ export * from './customers';
 export * from './customerDocuments';
 export * from './governmentDocuments';
 export * from './loanCollections';
+export * from './analytics';

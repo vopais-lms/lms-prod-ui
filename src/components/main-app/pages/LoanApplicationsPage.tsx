@@ -56,6 +56,12 @@ function loanApplicationStatusBadge(status: LoanApplicationStatus) {
   }
 }
 
+function npaBadge(isNpa: boolean) {
+  return isNpa
+    ? <StatusBadge status="error" label="NPA" />
+    : <StatusBadge status="active" label="Healthy" />;
+}
+
 export function LoanApplicationsPage() {
   const navigate = useNavigate();
   const [applications, setApplications] = useState<LoanApplication[]>([]);
@@ -193,6 +199,12 @@ export function LoanApplicationsPage() {
       label: 'Status',
       className: 'w-40',
       render: (item: LoanApplication) => loanApplicationStatusBadge(item.status),
+    },
+    {
+      key: 'is_npa',
+      label: 'NPA',
+      className: 'w-28',
+      render: (item: LoanApplication) => npaBadge(Boolean(item.is_npa)),
     },
     {
       key: 'created_at',

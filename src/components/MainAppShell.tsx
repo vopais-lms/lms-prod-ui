@@ -29,6 +29,7 @@ import { DisbursementRequestDetailPage } from './main-app/pages/DisbursementRequ
 import { LoanCollectionCreatePage } from './main-app/pages/LoanCollectionCreatePage';
 import { LoanCollectionDetailPage } from './main-app/pages/LoanCollectionDetailPage';
 import { RepaymentsPage } from './main-app/pages/RepaymentsPage';
+import { ReportsAnalyticsPage } from './main-app/pages/ReportsAnalyticsPage';
 import { clearSession, fetchAndStoreMenuItems, getDefaultAppRoute, getStoredMenuItems } from '../utils/authSession';
 import type { MenuItem } from '../apis/types';
 
@@ -193,6 +194,7 @@ export function MainAppShell() {
             />
             <Route path="loans/:eid" element={<LoanApplicationDetailPage />} />
             <Route path="repayments" element={<RepaymentsPage />} />
+            <Route path="reports" element={<ReportsAnalyticsPage />} />
             <Route path="tenant-settings" element={<PlaceholderPage />} />
             <Route path="customer-kyc/:customerEid" element={<CustomerKycPage />} />
 

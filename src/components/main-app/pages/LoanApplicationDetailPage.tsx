@@ -40,6 +40,12 @@ function loanApplicationStatusBadge(status: LoanApplicationStatus) {
   }
 }
 
+function npaBadge(isNpa: boolean) {
+  return isNpa
+    ? <StatusBadge status="error" label="NPA" />
+    : <StatusBadge status="active" label="Healthy" />;
+}
+
 function termsToFormState(app: LoanApplicationDetail) {
   return {
     principal_disbursement_amount: String(app.principal_disbursement_amount ?? ''),
@@ -301,6 +307,7 @@ export function LoanApplicationDetailPage() {
       actions={
         <div className="flex items-center gap-3">
           {loanApplicationStatusBadge(application.status)}
+          {npaBadge(Boolean(application.is_npa))}
           {canStartDisbursement && (
             <button
               type="button"
