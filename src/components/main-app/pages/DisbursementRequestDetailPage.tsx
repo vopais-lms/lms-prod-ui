@@ -17,6 +17,7 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { LmsFormioForm } from '../shared/LmsFormioForm';
 import { LmsFormioReadOnlyForm } from '../shared/LmsFormioReadOnlyForm';
 import { KeyValueGrid } from '../shared/KeyValueGrid';
+import { fetchFormJsonSchema } from '../../../utils/formJsonUrl';
 
 function buildDisbursementBreadcrumbs(
   loanApplicationEid: string,
@@ -98,6 +99,8 @@ export function DisbursementRequestDetailPage() {
   const [request, setRequest] = useState<DisbursementRequestDetail | null>(null);
   const [disbursementAmount, setDisbursementAmount] = useState('');
   const [amortizationType, setAmortizationType] = useState('keep_tenured_fixed');
+  const [formSchema, setFormSchema] = useState<Record<string, unknown> | null>(null);
+  const [formSchemaLoading, setFormSchemaLoading] = useState(false);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [formStepOpen, setFormStepOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -132,6 +135,19 @@ export function DisbursementRequestDetailPage() {
       setFormStepOpen(
         requestDetail.status !== 'pending' || Boolean(requestDetail.form_values),
       );
+      if (requestDetail.form_json_url) {
+        setFormSchemaLoading(true);
+        try {
+          setFormSchema(await fetchFormJsonSchema(requestDetail.form_json_url));
+        } catch (schemaErr: any) {
+          setFormSchema(null);
+          setActionError(schemaErr.message || 'Failed to load disbursement form schema');
+        } finally {
+          setFormSchemaLoading(false);
+        }
+      } else {
+        setFormSchema(null);
+      }
     } catch (err: any) {
       setPageError(err.message || 'Failed to load disbursement request');
     } finally {
@@ -450,9 +466,11 @@ export function DisbursementRequestDetailPage() {
             the request to the loan officer for approval.
           </p>
 
-          {request.form_json ? (
+          {formSchemaLoading ? (
+            <p className="text-sm text-[#6B7280]">Loading disbursement form…</p>
+          ) : formSchema ? (
             <LmsFormioForm
-              form={request.form_json}
+              form={formSchema}
               uploadContext={uploadContext}
               submission={formValues}
               handlers={formHandlers}
@@ -478,11 +496,13 @@ export function DisbursementRequestDetailPage() {
         <div className="space-y-6">
           <KeyValueGrid groups={readOnlyGroups} />
 
-          {request.form_json ? (
+          {formSchemaLoading ? (
+            <p className="text-sm text-[#6B7280]">Loading disbursement form…</p>
+          ) : formSchema ? (
             <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-4">
               <h2 className="text-lg font-semibold text-[#111827]">Disbursement request form</h2>
               <LmsFormioReadOnlyForm
-                form={request.form_json}
+                form={formSchema}
                 submission={(request.form_values as Record<string, unknown>) || {}}
               />
             </div>

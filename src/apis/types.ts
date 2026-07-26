@@ -25,7 +25,7 @@ export type LoanTypeFormPurpose =
   | 'moratorium_request_form_json';
 
 export interface LoanTypeDetail extends LoanType {
-  form_json?: Record<string, unknown> | null;
+  form_json_url?: string | null;
 }
 
 export interface TenantDetails {
@@ -162,7 +162,7 @@ export interface LoanApplication extends LoanApplicationTerms {
 }
 
 export interface LoanApplicationDetail extends LoanApplication {
-  form?: Record<string, unknown> | null;
+  form_json_url?: string | null;
   form_values?: Record<string, unknown> | null;
 }
 
@@ -313,7 +313,7 @@ export interface MoratoriumRequestListItem {
 }
 
 export interface MoratoriumRequestDetail extends MoratoriumRequestListItem {
-  form_json?: Record<string, unknown> | null;
+  form_json_url?: string | null;
   form_values?: Record<string, unknown> | null;
 }
 
@@ -329,7 +329,7 @@ export interface DisbursementRequestListItem {
 }
 
 export interface DisbursementRequestDetail extends DisbursementRequestListItem {
-  form_json?: Record<string, unknown> | null;
+  form_json_url?: string | null;
   form_values?: Record<string, unknown> | null;
 }
 

@@ -15,6 +15,7 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { LmsFormioForm } from '../shared/LmsFormioForm';
 import { LmsFormioReadOnlyForm } from '../shared/LmsFormioReadOnlyForm';
 import { KeyValueGrid } from '../shared/KeyValueGrid';
+import { fetchFormJsonSchema } from '../../../utils/formJsonUrl';
 
 function buildMoratoriumBreadcrumbs(loanApplicationEid: string, navigate: ReturnType<typeof useNavigate>) {
   return [
@@ -93,6 +94,8 @@ export function MoratoriumRequestDetailPage() {
   const [application, setApplication] = useState<LoanApplicationDetail | null>(null);
   const [request, setRequest] = useState<MoratoriumRequestDetail | null>(null);
   const [coreForm, setCoreForm] = useState<ReturnType<typeof requestToFormState> | null>(null);
+  const [formSchema, setFormSchema] = useState<Record<string, unknown> | null>(null);
+  const [formSchemaLoading, setFormSchemaLoading] = useState(false);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [formStepOpen, setFormStepOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -122,6 +125,19 @@ export function MoratoriumRequestDetailPage() {
       setCoreForm(requestToFormState(requestDetail));
       setFormValues((requestDetail.form_values as Record<string, unknown>) || {});
       setFormStepOpen(requestDetail.status !== 'pending' || Boolean(requestDetail.form_values));
+      if (requestDetail.form_json_url) {
+        setFormSchemaLoading(true);
+        try {
+          setFormSchema(await fetchFormJsonSchema(requestDetail.form_json_url));
+        } catch (schemaErr: any) {
+          setFormSchema(null);
+          setActionError(schemaErr.message || 'Failed to load moratorium form schema');
+        } finally {
+          setFormSchemaLoading(false);
+        }
+      } else {
+        setFormSchema(null);
+      }
     } catch (err: any) {
       setPageError(err.message || 'Failed to load moratorium request');
     } finally {
@@ -451,9 +467,11 @@ export function MoratoriumRequestDetailPage() {
             request to the loan officer for approval.
           </p>
 
-          {request.form_json ? (
+          {formSchemaLoading ? (
+            <p className="text-sm text-[#6B7280]">Loading moratorium form…</p>
+          ) : formSchema ? (
             <LmsFormioForm
-              form={request.form_json}
+              form={formSchema}
               uploadContext={uploadContext}
               submission={formValues}
               handlers={formHandlers}
@@ -479,11 +497,13 @@ export function MoratoriumRequestDetailPage() {
         <div className="space-y-6">
           <KeyValueGrid groups={readOnlyGroups} />
 
-          {request.form_json ? (
+          {formSchemaLoading ? (
+            <p className="text-sm text-[#6B7280]">Loading moratorium form…</p>
+          ) : formSchema ? (
             <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-4">
               <h2 className="text-lg font-semibold text-[#111827]">Moratorium request form</h2>
               <LmsFormioReadOnlyForm
-                form={request.form_json}
+                form={formSchema}
                 submission={(request.form_values as Record<string, unknown>) || {}}
               />
             </div>

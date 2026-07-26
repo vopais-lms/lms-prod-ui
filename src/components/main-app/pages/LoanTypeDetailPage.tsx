@@ -16,6 +16,7 @@ import {
     patchLoanTypeFormBuilder,
 } from '../../../apis/loanTypeForms';
 import { ApiError } from '../../../utils/apiClient';
+import { fetchFormJsonSchema } from '../../../utils/formJsonUrl';
 import type { LoanType, LoanTypeFormPurpose } from '../../../apis/types';
 import {
     LOAN_TYPE_DETAIL_SECTIONS,
@@ -65,7 +66,7 @@ export function LoanTypeDetailPage() {
                 name: detail.name,
                 status: detail.status,
             });
-            const schema = detail.form_json ?? EMPTY_FORMIO_SCHEMA;
+            const schema = await fetchFormJsonSchema(detail.form_json_url);
             setInitialForm(schema);
             setDraftForm(schema);
         } catch (err) {

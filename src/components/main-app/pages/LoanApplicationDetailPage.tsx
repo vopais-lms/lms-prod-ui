@@ -9,6 +9,7 @@ import { LmsFormioForm } from '../shared/LmsFormioForm';
 import { LoanApplicationSubmittedSections } from './LoanApplicationSubmittedSections';
 import { loanApplicationsApi } from '../../../apis/loanApplications';
 import type { LoanApplicationDetail, LoanApplicationStatus } from '../../../apis/types';
+import { fetchFormJsonSchema } from '../../../utils/formJsonUrl';
 import {
   LOAN_BPI_CALCULATION_OPTIONS,
   LOAN_EMI_SCHEDULE_OPTIONS,
@@ -121,6 +122,8 @@ export function LoanApplicationDetailPage() {
   const { eid } = useParams<{ eid: string }>();
   const [application, setApplication] = useState<LoanApplicationDetail | null>(null);
   const [termsForm, setTermsForm] = useState<ReturnType<typeof termsToFormState> | null>(null);
+  const [formSchema, setFormSchema] = useState<Record<string, unknown> | null>(null);
+  const [formSchemaLoading, setFormSchemaLoading] = useState(false);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -145,6 +148,19 @@ export function LoanApplicationDetailPage() {
       setApplication(detail);
       setTermsForm(termsToFormState(detail));
       setFormValues((detail.form_values as Record<string, unknown>) || {});
+      if (detail.form_json_url) {
+        setFormSchemaLoading(true);
+        try {
+          setFormSchema(await fetchFormJsonSchema(detail.form_json_url));
+        } catch (schemaErr: any) {
+          setFormSchema(null);
+          setActionError(schemaErr.message || 'Failed to load application form schema');
+        } finally {
+          setFormSchemaLoading(false);
+        }
+      } else {
+        setFormSchema(null);
+      }
     } catch (err: any) {
       setPageError(err.message || 'Failed to load loan application');
     } finally {
@@ -521,9 +537,11 @@ export function LoanApplicationDetailPage() {
             Fill in the loan application form. Files upload immediately when selected.
           </p>
 
-          {application.form ? (
+          {formSchemaLoading ? (
+            <p className="text-sm text-[#6B7280]">Loading application form…</p>
+          ) : formSchema ? (
             <LmsFormioForm
-              form={application.form}
+              form={formSchema}
               uploadContext={uploadContext}
               submission={formValues}
               handlers={formHandlers}

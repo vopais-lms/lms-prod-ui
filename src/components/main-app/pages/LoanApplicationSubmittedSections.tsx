@@ -28,6 +28,7 @@ import { DataTable } from '../shared/DataTable';
 import { KeyValueGrid } from '../shared/KeyValueGrid';
 import { LmsFormioReadOnlyForm } from '../shared/LmsFormioReadOnlyForm';
 import { repaymentScheduleTableColumns } from '../shared/repaymentScheduleColumns';
+import { fetchFormJsonSchema } from '../../../utils/formJsonUrl';
 
 type SectionListState<T> = {
   data: T[];
@@ -102,6 +103,9 @@ export function LoanApplicationSubmittedSections({
   const [approvals, setApprovals] =
     useState(createEmptyListState<LoanApplicationApproval>());
 
+  const [formSchema, setFormSchema] = useState<Record<string, unknown> | null>(null);
+  const [formSchemaLoading, setFormSchemaLoading] = useState(false);
+  const [formSchemaError, setFormSchemaError] = useState<string | null>(null);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
 
   const visibleSections = useMemo(
@@ -122,6 +126,43 @@ export function LoanApplicationSubmittedSections({
       setActiveSection('overview');
     }
   }, [application.is_single_disbursement, activeSection]);
+
+  useEffect(() => {
+    if (activeSection !== 'application-form') {
+      return;
+    }
+    if (!application.form_json_url) {
+      setFormSchema(null);
+      setFormSchemaError(null);
+      setFormSchemaLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setFormSchemaLoading(true);
+    setFormSchemaError(null);
+    fetchFormJsonSchema(application.form_json_url)
+      .then((schema) => {
+        if (!cancelled) {
+          setFormSchema(schema);
+        }
+      })
+      .catch((err: any) => {
+        if (!cancelled) {
+          setFormSchema(null);
+          setFormSchemaError(err?.message || 'Failed to load application form schema');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setFormSchemaLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, application.form_json_url]);
 
   const fetchApprovals = useCallback(
     async ({ force = false }: { force?: boolean } = {}) => {
@@ -370,7 +411,17 @@ export function LoanApplicationSubmittedSections({
         return <KeyValueGrid groups={standardFieldGroups} />;
 
       case 'application-form':
-        if (!application.form) {
+        if (formSchemaLoading) {
+          return <p className="text-sm text-[#6B7280]">Loading application form…</p>;
+        }
+        if (formSchemaError) {
+          return (
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {formSchemaError}
+            </p>
+          );
+        }
+        if (!formSchema) {
           return (
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               No application form schema is configured for this loan type.
@@ -379,7 +430,7 @@ export function LoanApplicationSubmittedSections({
         }
         return (
           <LmsFormioReadOnlyForm
-            form={application.form}
+            form={formSchema}
             submission={(application.form_values as Record<string, unknown>) || {}}
           />
         );
