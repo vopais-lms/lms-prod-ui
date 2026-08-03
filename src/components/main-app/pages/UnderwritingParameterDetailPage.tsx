@@ -25,8 +25,11 @@ import type {
   ParameterDetail,
   ParameterFormField,
   ParameterLinkedLoanType,
+  ParameterType,
 } from '../../../apis/types';
 import {
+  CORE_LOAN_TERM_OPTIONS,
+  PARAMETER_VALUE_SOURCE_OPTIONS,
   PRODUCT_TOPICS,
   coreLoanTermLabel,
   parameterTypeLabel,
@@ -113,6 +116,12 @@ export function UnderwritingParameterDetailPage() {
   );
   const [selectedCapability, setSelectedCapability] = useState('');
   const [capabilitySaveLoading, setCapabilitySaveLoading] = useState(false);
+  /** Local chooser: form fields vs external capability (topic does not constrain this). */
+  const [valueSource, setValueSource] = useState<ParameterType>('form_field_api');
+  const [valueSourceLoading, setValueSourceLoading] = useState(false);
+  const [coreTermColumn, setCoreTermColumn] = useState(
+    CORE_LOAN_TERM_OPTIONS[0].value,
+  );
 
   const activeLoanTypes = useMemo(
     () => allLoanTypes.filter((lt) => lt.status === true),
@@ -168,11 +177,15 @@ export function UnderwritingParameterDetailPage() {
       setDetail(d);
       setName(d.name);
       setTopic(d.topic);
+      setValueSource((d.parameter_type as ParameterType) || 'form_field_api');
       setLinkedLoanTypes(loans.linked_loan_types);
       setAllLoanTypes(loanTypes.data);
       const options = flattenCapabilityOptions(caps.data);
       setCapabilityOptions(options);
       const settings = d.parameter_setting || {};
+      if (typeof settings.loan_application_column === 'string') {
+        setCoreTermColumn(settings.loan_application_column);
+      }
       const api = settings.api_settings as
         | { api_adapter?: string; api_adapter_fetch_method?: string }
         | undefined;
@@ -385,18 +398,57 @@ export function UnderwritingParameterDetailPage() {
       await parametersApi.update(id, {
         parameter_type: 'api_settings',
         parameter_settings: {
+          form_field_api: null,
+          reference: null,
+          loan_application_column: null,
           api_settings: {
             api_adapter: picked.api_adapter,
             api_adapter_fetch_method: picked.api_adapter_fetch_method,
           },
         },
       });
+      setValueSource('api_settings');
       setSaveMessage('External data check saved');
       await load();
     } catch (err: any) {
       setError(err.message || 'Failed to save data check');
     } finally {
       setCapabilitySaveLoading(false);
+    }
+  };
+
+  const handleValueSourceChange = (next: ParameterType) => {
+    // Local UI only — settings are persisted when the user saves a capability,
+    // links form fields, or saves a core loan term (each writes the matching type).
+    setValueSource(next);
+    setError(null);
+    setSaveMessage(null);
+  };
+
+  const handleSaveCoreTerm = async () => {
+    if (!coreTermColumn) {
+      setError('Choose a core loan term.');
+      return;
+    }
+    setValueSourceLoading(true);
+    setError(null);
+    try {
+      await parametersApi.update(id, {
+        parameter_type: 'loan_application_column',
+        parameter_settings: {
+          form_field_api: null,
+          reference: null,
+          loan_application_column: coreTermColumn,
+          api_settings: null,
+        },
+      });
+      setValueSource('loan_application_column');
+      setSaveMessage('Core loan term saved');
+      await load();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save core loan term');
+    } finally {
+      setValueSourceLoading(false);
     }
   };
 
@@ -419,10 +471,9 @@ export function UnderwritingParameterDetailPage() {
     );
   }
 
-  const isFormFieldsType =
-    !detail?.parameter_type || detail.parameter_type === 'form_field_api';
-  const isApiSettingsType = detail?.parameter_type === 'api_settings';
-  const isCoreTermsType = detail?.parameter_type === 'loan_application_column';
+  const isFormFieldsType = valueSource === 'form_field_api';
+  const isApiSettingsType = valueSource === 'api_settings';
+  const isCoreTermsType = valueSource === 'loan_application_column';
 
   return (
     <div className="space-y-6">
@@ -464,6 +515,9 @@ export function UnderwritingParameterDetailPage() {
               options={topicOptions}
               placeholder="Select topic"
             />
+            <p className="text-xs text-[#6B7280] mt-1">
+              Grouping label only — does not decide form fields vs external check.
+            </p>
           </FormField>
         </div>
         <button
@@ -507,130 +561,210 @@ export function UnderwritingParameterDetailPage() {
         )}
       </section>
 
-      {isCoreTermsType && (
-        <section className="space-y-2 border border-[#E5E7EB] rounded-xl p-4 bg-white">
-          <h3 className="text-sm font-semibold text-[#111827]">Core loan term</h3>
-          <p className="text-sm text-[#374151]">
-            {coreLoanTermLabel(loanApplicationColumn)}
+      <section className="space-y-4 border border-[#E5E7EB] rounded-xl p-4 bg-white">
+        <div>
+          <h3 className="text-sm font-semibold text-[#111827]">
+            How this parameter gets its value
+          </h3>
+          <p className="text-xs text-[#6B7280] mt-0.5">
+            Parameters are generic. Topic is only a label — pick either form
+            fields or an external capability (settings stored for that choice).
           </p>
-        </section>
-      )}
+        </div>
 
-      {isApiSettingsType && (
-        <section className="space-y-3 border border-[#E5E7EB] rounded-xl p-4 bg-white">
-          <div>
-            <h3 className="text-sm font-semibold text-[#111827]">
-              External data check
-            </h3>
-            <p className="text-xs text-[#6B7280] mt-0.5">
-              Provider verification used when scoring this parameter
-            </p>
-          </div>
-          {capabilityLabel && (
-            <p className="text-sm text-[#374151]">
-              Current: <span className="font-medium">{capabilityLabel}</span>
-            </p>
-          )}
-          <FormField label="Data check">
-            <FormSelect
-              value={selectedCapability}
-              onChange={setSelectedCapability}
-              options={capabilityOptions.map((c) => ({
-                value: capabilityOptionValue(c),
-                label: c.label,
-              }))}
-              placeholder="Select a data check"
-            />
-          </FormField>
-          <button
-            onClick={handleSaveCapability}
-            disabled={capabilitySaveLoading || !selectedCapability}
-            className="px-3 py-2 text-sm rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] disabled:opacity-50"
+        <div className="space-y-2">
+          {PARAMETER_VALUE_SOURCE_OPTIONS.map((opt) => {
+            const selected = valueSource === opt.value;
+            return (
+              <label
+                key={opt.value}
+                className={`flex gap-3 rounded-lg border px-3 py-2.5 cursor-pointer ${
+                  selected
+                    ? 'border-[#BFDBFE] bg-[#EFF6FF]'
+                    : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
+                } ${valueSourceLoading ? 'opacity-60 pointer-events-none' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="parameter-value-source"
+                  className="mt-1"
+                  checked={selected}
+                  disabled={valueSourceLoading}
+                  onChange={() => handleValueSourceChange(opt.value)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-[#111827]">
+                    {opt.label}
+                  </span>
+                  <span className="block text-xs text-[#6B7280] mt-0.5">
+                    {opt.help}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+          <label
+            className={`flex gap-3 rounded-lg border px-3 py-2.5 cursor-pointer ${
+              isCoreTermsType
+                ? 'border-[#BFDBFE] bg-[#EFF6FF]'
+                : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
+            } ${valueSourceLoading ? 'opacity-60 pointer-events-none' : ''}`}
           >
-            {capabilitySaveLoading ? 'Saving…' : 'Save data check'}
-          </button>
-        </section>
-      )}
+            <input
+              type="radio"
+              name="parameter-value-source"
+              className="mt-1"
+              checked={isCoreTermsType}
+              disabled={valueSourceLoading}
+              onChange={() => handleValueSourceChange('loan_application_column')}
+            />
+            <span>
+              <span className="block text-sm font-medium text-[#111827]">
+                Core loan terms
+              </span>
+              <span className="block text-xs text-[#6B7280] mt-0.5">
+                Use a value already stored on the loan application record.
+              </span>
+            </span>
+          </label>
+        </div>
 
-      {isFormFieldsType && (
-        <section className="space-y-4 border border-[#E5E7EB] rounded-xl p-4 bg-white">
-          <div>
-            <h3 className="text-sm font-semibold text-[#111827]">Linked form fields</h3>
-            <p className="text-xs text-[#6B7280] mt-0.5">
-              Fields on each loan product’s application form that feed this parameter
-            </p>
+        {isApiSettingsType && (
+          <div className="pt-3 border-t border-[#E5E7EB] space-y-3">
+            <p className="text-sm font-medium text-[#111827]">External data check</p>
+            {capabilityLabel && (
+              <p className="text-sm text-[#374151]">
+                Current: <span className="font-medium">{capabilityLabel}</span>
+              </p>
+            )}
+            <FormField label="Capability">
+              <FormSelect
+                value={selectedCapability}
+                onChange={setSelectedCapability}
+                options={capabilityOptions.map((c) => ({
+                  value: capabilityOptionValue(c),
+                  label: c.label,
+                }))}
+                placeholder="Select a capability"
+              />
+            </FormField>
+            <button
+              onClick={handleSaveCapability}
+              disabled={capabilitySaveLoading || !selectedCapability}
+              className="px-3 py-2 text-sm rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] disabled:opacity-50"
+            >
+              {capabilitySaveLoading ? 'Saving…' : 'Save capability'}
+            </button>
           </div>
+        )}
 
-          {linkedFormFieldGroups.length === 0 ? (
-            <p className="text-sm text-[#6B7280]">No form fields linked yet.</p>
-          ) : (
-            <div className="space-y-4">
-              {linkedFormFieldGroups.map((group) => (
-                <div key={String(group.loanTypeId)} className="space-y-2">
-                  <p className="text-sm font-medium text-[#111827]">
-                    {group.loanTypeName}
-                  </p>
-                  {group.fields.length === 0 ? (
-                    <p className="text-xs text-[#6B7280]">No fields linked.</p>
-                  ) : (
-                    <ul className="text-sm space-y-1.5 pl-1">
-                      {group.fields.map((field) => (
-                        <li
-                          key={field.form_field_api}
-                          className="flex flex-wrap items-baseline gap-x-2"
-                        >
-                          <span className="text-[#111827]">
-                            {field.form_field_label || field.form_field_api}
-                          </span>
-                          {field.form_field_type ? (
-                            <span className="text-xs text-[#9CA3AF]">
-                              {field.form_field_type}
+        {isFormFieldsType && (
+          <div className="pt-3 border-t border-[#E5E7EB] space-y-4">
+            <div>
+              <p className="text-sm font-medium text-[#111827]">Linked form fields</p>
+              <p className="text-xs text-[#6B7280] mt-0.5">
+                Fields on each loan product’s application form that feed this
+                parameter
+              </p>
+            </div>
+
+            {linkedFormFieldGroups.length === 0 ? (
+              <p className="text-sm text-[#6B7280]">No form fields linked yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {linkedFormFieldGroups.map((group) => (
+                  <div key={String(group.loanTypeId)} className="space-y-2">
+                    <p className="text-sm font-medium text-[#111827]">
+                      {group.loanTypeName}
+                    </p>
+                    {group.fields.length === 0 ? (
+                      <p className="text-xs text-[#6B7280]">No fields linked.</p>
+                    ) : (
+                      <ul className="text-sm space-y-1.5 pl-1">
+                        {group.fields.map((field) => (
+                          <li
+                            key={field.form_field_api}
+                            className="flex flex-wrap items-baseline gap-x-2"
+                          >
+                            <span className="text-[#111827]">
+                              {field.form_field_label || field.form_field_api}
                             </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                            {field.form_field_type ? (
+                              <span className="text-xs text-[#9CA3AF]">
+                                {field.form_field_type}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-          <div className="pt-2 border-t border-[#E5E7EB] space-y-3">
-            <p className="text-sm font-medium text-[#111827]">Add form fields</p>
-            <p className="text-xs text-[#6B7280]">
-              Choose existing fields from a loan application form, or design new
-              fields with the drag-and-drop builder.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => {
-                  setError(null);
-                  setExistingModal(true);
-                }}
-                className="px-3 py-2 text-sm rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB]"
-              >
-                Link fields already on a loan application form
-              </button>
-              <button
-                onClick={openNewFieldModal}
-                className="px-3 py-2 text-sm rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB]"
-              >
-                Design new form fields
-              </button>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-[#111827]">Add form fields</p>
+              <p className="text-xs text-[#6B7280]">
+                Link fields already on a loan application form, or design new
+                fields with the drag-and-drop builder.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setExistingModal(true);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                >
+                  Link to existing form fields
+                </button>
+                <button
+                  onClick={openNewFieldModal}
+                  className="px-3 py-2 text-sm rounded-lg border border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                >
+                  Link to new form fields
+                </button>
+              </div>
             </div>
           </div>
-        </section>
-      )}
+        )}
 
-      {!isFormFieldsType && !isApiSettingsType && !isCoreTermsType && (
-        <section className="space-y-3 border border-[#E5E7EB] rounded-xl p-4 bg-white">
-          <p className="text-sm text-[#6B7280]">
-            This parameter uses type “{parameterTypeLabel(detail?.parameter_type)}”.
-            Form-field linking is available for Form Fields parameters.
-          </p>
-        </section>
-      )}
+        {isCoreTermsType && (
+          <div className="pt-3 border-t border-[#E5E7EB] space-y-3">
+            <FormField label="Core loan term">
+              <FormSelect
+                value={coreTermColumn}
+                onChange={setCoreTermColumn}
+                options={CORE_LOAN_TERM_OPTIONS}
+                placeholder="Select loan term"
+              />
+            </FormField>
+            {loanApplicationColumn && (
+              <p className="text-xs text-[#6B7280]">
+                Saved as: {coreLoanTermLabel(loanApplicationColumn)}
+              </p>
+            )}
+            <button
+              onClick={handleSaveCoreTerm}
+              disabled={valueSourceLoading}
+              className="px-3 py-2 text-sm rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] disabled:opacity-50"
+            >
+              {valueSourceLoading ? 'Saving…' : 'Save core loan term'}
+            </button>
+          </div>
+        )}
+
+        {!isFormFieldsType &&
+          !isApiSettingsType &&
+          !isCoreTermsType && (
+            <p className="text-sm text-[#6B7280]">
+              This parameter uses type “
+              {parameterTypeLabel(detail?.parameter_type)}”. Choose Form fields
+              or External data check above.
+            </p>
+          )}
+      </section>
 
       <FormModal
         isOpen={linkLoanModal}

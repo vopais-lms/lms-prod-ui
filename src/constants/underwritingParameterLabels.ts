@@ -22,14 +22,36 @@ export const PARAMETER_TYPE_LABELS: Record<ParameterType, string> = {
   reference: 'Linked record',
 };
 
-/** Types exposed in create/edit flows (hide Linked record for this UX). */
+/**
+ * How a generic parameter gets its value. Topic is only a grouping label —
+ * any topic can use either form fields or an external capability.
+ * (Core loan terms kept for loan-application column parameters.)
+ */
 export const PARAMETER_TYPE_OPTIONS: { value: ParameterType; label: string }[] = [
-  { value: 'form_field_api', label: PARAMETER_TYPE_LABELS.form_field_api },
+  { value: 'form_field_api', label: 'Form fields on the loan application' },
+  { value: 'api_settings', label: 'External data check' },
   {
     value: 'loan_application_column',
     label: PARAMETER_TYPE_LABELS.loan_application_column,
   },
-  { value: 'api_settings', label: PARAMETER_TYPE_LABELS.api_settings },
+];
+
+/** Primary value sources shown on the parameter detail page. */
+export const PARAMETER_VALUE_SOURCE_OPTIONS: {
+  value: 'form_field_api' | 'api_settings';
+  label: string;
+  help: string;
+}[] = [
+  {
+    value: 'form_field_api',
+    label: 'Form fields',
+    help: 'Read the value from fields on the loan application form (link existing or design new).',
+  },
+  {
+    value: 'api_settings',
+    label: 'External data check',
+    help: 'Pull the value from a provider capability when scoring.',
+  },
 ];
 
 /** Core loan terms from product topics docstring → loan_application columns. */

@@ -191,8 +191,8 @@ export function UnderwritingParametersPage() {
             Underwriting configurations
           </h2>
           <p className="text-sm text-[#6B7280]">
-            Define scoring parameters and how they pull data from applications or
-            external checks
+            Generic scoring parameters. Topic is only a group label — each
+            parameter gets its value from form fields or an external data check.
           </p>
         </div>
         <button
@@ -239,6 +239,10 @@ export function UnderwritingParametersPage() {
             options={PRODUCT_TOPICS.map((t) => ({ value: t, label: t }))}
             placeholder="Select topic"
           />
+          <p className="text-xs text-[#6B7280] mt-1">
+            Grouping only (e.g. Credit Bureau). Does not lock how the value is
+            sourced.
+          </p>
         </FormField>
         <FormField label="How this parameter gets its value" required>
           <FormSelect
@@ -289,8 +293,14 @@ export function UnderwritingParametersPage() {
 
         {parameterType === 'form_field_api' && (
           <p className="text-xs text-[#6B7280]">
-            After creating, you can link fields already on a loan application form,
-            or design new fields with the form builder.
+            After creating, open the parameter to link existing application form
+            fields or design new ones with the form builder.
+          </p>
+        )}
+        {parameterType === 'api_settings' && (
+          <p className="text-xs text-[#6B7280]">
+            Pick which external capability supplies this parameter when scoring.
+            You can switch to form fields later on the detail page.
           </p>
         )}
       </FormModal>
