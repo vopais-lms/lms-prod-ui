@@ -1,5 +1,11 @@
 import { api } from '../utils/apiClient';
-import type { LoanType, LoanTypeDetail, LoanTypeFormPurpose, LoanTypeListResponse } from './types';
+import type {
+  LoanType,
+  LoanTypeDetail,
+  LoanTypeFormComponentsResponse,
+  LoanTypeFormPurpose,
+  LoanTypeListResponse,
+} from './types';
 
 export const loanTypesApi = {
   list: (params?: { page?: number; per_page?: number }) =>
@@ -21,4 +27,13 @@ export const loanTypesApi = {
     loanTypeId: number,
     data: { form_json: Record<string, unknown>; purpose: LoanTypeFormPurpose },
   ) => api.patch<void>(`/loan-types/${loanTypeId}/form_json_save`, data),
+
+  getInputFormComponents: (
+    loanTypeId: number,
+    purpose: LoanTypeFormPurpose = 'loan_application_form_json',
+  ) =>
+    api.get<LoanTypeFormComponentsResponse>(
+      `/loan-types/${loanTypeId}/get_input_form_components`,
+      { params: { purpose } },
+    ),
 };

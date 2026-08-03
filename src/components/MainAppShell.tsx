@@ -18,7 +18,10 @@ import { ProfilesPage } from './main-app/pages/ProfilesPage';
 import { CustomersPage } from './main-app/pages/CustomersPage';
 import { CustomerKycPage } from './main-app/pages/CustomerKycPage';
 import { LoanTypesPage } from './main-app/pages/LoanTypesPage';
+import { LoanTypesHubPage } from './main-app/pages/LoanTypesHubPage';
 import { LoanTypeDetailPage } from './main-app/pages/LoanTypeDetailPage';
+import { UnderwritingParametersPage } from './main-app/pages/UnderwritingParametersPage';
+import { UnderwritingParameterDetailPage } from './main-app/pages/UnderwritingParameterDetailPage';
 import { LoanApplicationsPage } from './main-app/pages/LoanApplicationsPage';
 import { LoanApplicationCreatePage } from './main-app/pages/LoanApplicationCreatePage';
 import { LoanApplicationDetailPage } from './main-app/pages/LoanApplicationDetailPage';
@@ -164,7 +167,14 @@ export function MainAppShell() {
             <Route path="branch" element={<BranchesPage />} />
             <Route path="profiles" element={<ProfilesPage />} />
             <Route path="customers" element={<CustomersPage />} />
-            <Route path="loan-types" element={<LoanTypesPage />} />
+            <Route path="loan-types" element={<LoanTypesHubPage />}>
+              <Route index element={<LoanTypesPage />} />
+              <Route path="underwriting" element={<UnderwritingParametersPage />} />
+              <Route
+                path="underwriting/:parameterId"
+                element={<UnderwritingParameterDetailPage />}
+              />
+            </Route>
             <Route path="loan-types/:loanTypeId" element={<LoanTypeDetailPage />} />
             <Route path="loans" element={<LoanApplicationsPage />} />
             <Route path="loans/new" element={<LoanApplicationCreatePage />} />

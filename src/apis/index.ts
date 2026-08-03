@@ -13,3 +13,5 @@ export * from './customerDocuments';
 export * from './governmentDocuments';
 export * from './loanCollections';
 export * from './analytics';
+export * from './parameters';
+export * from './loanTypes';

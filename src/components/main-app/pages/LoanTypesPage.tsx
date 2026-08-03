@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PlusIcon, PencilIcon, ArrowPathIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
-import { PageShell } from '../shared/PageShell';
 import { DataTable } from '../shared/DataTable';
 import { FormModal, FormField, FormInput } from '../shared/FormModal';
 import { StatusBadge } from '../shared/StatusBadge';
@@ -155,10 +154,14 @@ export function LoanTypesPage() {
   ];
 
   return (
-    <PageShell
-      title="Loan Types"
-      subtitle="Configure loan products and application forms"
-      actions={
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-[#111827]">Loan Type Configurations</h2>
+          <p className="text-sm text-[#6B7280]">
+            Configure loan products and application forms
+          </p>
+        </div>
         <button
           onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-medium rounded-lg hover:bg-[#1D4ED8] transition-colors"
@@ -166,8 +169,8 @@ export function LoanTypesPage() {
           <PlusIcon className="w-4 h-4" />
           Add Loan Type
         </button>
-      }
-    >
+      </div>
+
       {statusError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {statusError}
@@ -200,6 +203,6 @@ export function LoanTypesPage() {
           <FormInput value={name} onChange={setName} placeholder="e.g. Personal Loan, Business Loan" />
         </FormField>
       </FormModal>
-    </PageShell>
+    </div>
   );
 }

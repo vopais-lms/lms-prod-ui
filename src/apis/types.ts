@@ -393,3 +393,102 @@ export interface AnalyticsRatiosResponse {
   disbursed_count: number;
   under_process_to_disbursed_ratio: number | null;
 }
+
+// --- Underwriting / Parameters ---
+
+export type ParameterType =
+  | 'form_field_api'
+  | 'reference'
+  | 'loan_application_column'
+  | 'api_settings';
+
+export interface ParameterSetting {
+  form_field_api?: string | Record<string, unknown> | null;
+  reference?: { reference_type: string; reference_id: string } | null;
+  loan_application_column?: string | null;
+  api_settings?: {
+    api_adapter: string;
+    api_adapter_fetch_method: string;
+  } | null;
+}
+
+export interface Parameter {
+  id: number;
+  name: string;
+  topic: string;
+  parameter_type: ParameterType;
+  score_weightage: number;
+  parameter_settings: ParameterSetting;
+}
+
+export interface ParameterListItem {
+  id: number;
+  eid: string;
+  name: string;
+}
+
+export interface ParameterListResponse {
+  page: number;
+  per_page: number;
+  total_records: number;
+  data: ParameterListItem[];
+}
+
+export interface ParameterDetail {
+  id: number;
+  eid: string;
+  name: string;
+  topic: string;
+  parameter_type: string;
+  parameter_setting: Record<string, unknown>;
+}
+
+export interface ParameterCreateRequest {
+  name: string;
+  topic: string;
+  parameter_type?: Exclude<ParameterType, 'form_field_api'> | null;
+  parameter_settings: ParameterSetting;
+  score_weightage: number;
+}
+
+export interface ParameterUpdateRequest {
+  name?: string;
+  topic?: string;
+  parameter_type?: ParameterType | null;
+  score_weightage?: number;
+  parameter_settings?: ParameterSetting | null;
+}
+
+export interface ParameterLinkedLoanType {
+  loan_type_id: number;
+  loan_type_name: string;
+}
+
+export interface ParameterLoanTypesResponse {
+  linked_loan_types: ParameterLinkedLoanType[];
+}
+
+export interface ParameterLoanTypeLinkRequest {
+  all_loans?: boolean;
+  loan_type_ids?: number[] | null;
+}
+
+export interface ParameterFormField {
+  form_field_api: string;
+  form_field_label: string;
+  form_field_type: string;
+}
+
+export interface ParameterLinkExistingFormFieldRequest {
+  loan_type_forms: {
+    loan_type_id: number;
+    form_fields: ParameterFormField[];
+  }[];
+}
+
+export interface LoanTypeFormComponentsResponse {
+  form_json: {
+    form_component_mapping?: Record<string, unknown[]>;
+    form_to_form_mapping?: Record<string, string>;
+  };
+}
