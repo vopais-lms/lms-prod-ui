@@ -1,7 +1,7 @@
 // @ts-nocheck
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@formio/js/dist/formio.full.min.css';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { FormBuilder } from '@formio/react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -10,10 +10,11 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { loanTypesApi } from '../../../apis/loanTypes';
 import {
     DEFAULT_LOAN_TYPE_FORM_PURPOSE,
-    EMPTY_FORMIO_SCHEMA,
+    createEmptyFormioSchema,
     LOAN_TYPE_FORM_BUILDER_OPTIONS,
     LOAN_TYPE_FORM_PURPOSES,
     patchLoanTypeFormBuilder,
+    toFormioBuilderSchema,
 } from '../../../apis/loanTypeForms';
 import { ApiError } from '../../../utils/apiClient';
 import type { LoanType, LoanTypeFormPurpose } from '../../../apis/types';
@@ -33,8 +34,10 @@ export function LoanTypeDetailPage() {
     const [selectedPurpose, setSelectedPurpose] = useState<LoanTypeFormPurpose>(
         DEFAULT_LOAN_TYPE_FORM_PURPOSE,
     );
-    const [initialForm, setInitialForm] = useState(EMPTY_FORMIO_SCHEMA);
-    const [draftForm, setDraftForm] = useState(EMPTY_FORMIO_SCHEMA);
+    const [initialForm, setInitialForm] = useState(createEmptyFormioSchema);
+    const [draftForm, setDraftForm] = useState(createEmptyFormioSchema);
+    const [formEpoch, setFormEpoch] = useState(0);
+    const formEpochRef = useRef(0);
     const [loading, setLoading] = useState(true);
     const [saveLoading, setSaveLoading] = useState(false);
     const [pageError, setPageError] = useState<string | null>(null);
@@ -42,9 +45,24 @@ export function LoanTypeDetailPage() {
     const [saveSuccess, setSaveSuccess] = useState(false);
 
     const builderKey = useMemo(
-        () => `${parsedLoanTypeId}-${selectedPurpose}`,
-        [parsedLoanTypeId, selectedPurpose],
+        () => `${parsedLoanTypeId}-${selectedPurpose}-${formEpoch}`,
+        [parsedLoanTypeId, selectedPurpose, formEpoch],
     );
+
+    const applyFormSchema = useCallback((schema: Record<string, unknown>) => {
+        formEpochRef.current += 1;
+        setFormEpoch(formEpochRef.current);
+        setInitialForm(schema);
+        setDraftForm(schema);
+    }, []);
+
+    const handleBuilderFormChange = useCallback((schema: Record<string, unknown>) => {
+        const epoch = formEpochRef.current;
+        queueMicrotask(() => {
+            if (epoch !== formEpochRef.current) return;
+            setDraftForm(schema && typeof schema === 'object' ? schema : createEmptyFormioSchema());
+        });
+    }, []);
 
     const loadFormForPurpose = useCallback(async () => {
         if (!Number.isFinite(parsedLoanTypeId)) {
@@ -65,9 +83,8 @@ export function LoanTypeDetailPage() {
                 name: detail.name,
                 status: detail.status,
             });
-            const schema = detail.form_json ?? EMPTY_FORMIO_SCHEMA;
-            setInitialForm(schema);
-            setDraftForm(schema);
+            const schema = toFormioBuilderSchema(detail.form_json);
+            applyFormSchema(schema);
         } catch (err) {
             if (err instanceof ApiError && err.status === 404) {
                 if (err.message?.toLowerCase().includes('loan type not found')) {
@@ -87,8 +104,7 @@ export function LoanTypeDetailPage() {
                     }
                 }
 
-                setInitialForm(EMPTY_FORMIO_SCHEMA);
-                setDraftForm(EMPTY_FORMIO_SCHEMA);
+                applyFormSchema(createEmptyFormioSchema());
                 return;
             }
 
@@ -96,7 +112,7 @@ export function LoanTypeDetailPage() {
         } finally {
             setLoading(false);
         }
-    }, [parsedLoanTypeId, selectedPurpose]);
+    }, [parsedLoanTypeId, selectedPurpose, applyFormSchema]);
 
     useEffect(() => {
         if (!Number.isFinite(parsedLoanTypeId)) {
@@ -149,7 +165,9 @@ export function LoanTypeDetailPage() {
                 form_json: draftForm,
             });
             setSaveSuccess(true);
-            setInitialForm(draftForm);
+            // Remount builder from the saved draft so destroy/onChange from the
+            // previous instance cannot restore a stale pre-edit schema.
+            applyFormSchema(toFormioBuilderSchema(draftForm));
         } catch (err: any) {
             setSaveError(err.message || 'Failed to save form');
         } finally {
@@ -295,7 +313,7 @@ export function LoanTypeDetailPage() {
                                         initialForm={initialForm}
                                         options={LOAN_TYPE_FORM_BUILDER_OPTIONS}
                                         onBuilderReady={patchLoanTypeFormBuilder}
-                                        onChange={(schema) => setDraftForm(schema)}
+                                        onChange={handleBuilderFormChange}
                                     />
                                 )}
                             </div>

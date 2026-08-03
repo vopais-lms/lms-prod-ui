@@ -32,6 +32,96 @@ export const EMPTY_FORMIO_SCHEMA: Record<string, unknown> = {
   components: [],
 };
 
+/** Fresh empty schema — never reuse the shared EMPTY constant with FormBuilder. */
+export function createEmptyFormioSchema(): Record<string, unknown> {
+  return {
+    display: 'form',
+    components: [],
+  };
+}
+
+/** Form.io layout / action types that are not parameter input fields. */
+const NON_INPUT_FORMIO_TYPES = new Set([
+  'form',
+  'panel',
+  'fieldset',
+  'well',
+  'tabs',
+  'columns',
+  'table',
+  'container',
+  'datagrid',
+  'editgrid',
+  'datamap',
+  'tree',
+  'datasource',
+  'htmlelement',
+  'button',
+  'content',
+]);
+
+export function getInputFormioComponents(
+  schema: Record<string, unknown> | null | undefined,
+): Record<string, unknown>[] {
+  const components = Array.isArray(schema?.components) ? schema.components : [];
+  return components.filter(
+    (component): component is Record<string, unknown> =>
+      !!component &&
+      typeof component === 'object' &&
+      typeof (component as { type?: unknown }).type === 'string' &&
+      !NON_INPUT_FORMIO_TYPES.has((component as { type: string }).type),
+  );
+}
+
+function cloneJson<T>(value: T): T {
+  return typeof structuredClone === 'function'
+    ? structuredClone(value)
+    : (JSON.parse(JSON.stringify(value)) as T);
+}
+
+/**
+ * Form.io FormBuilder expects a flat schema `{ display, components }`.
+ * Backend / FormParser may store nested project shape `{ forms: { main: {...} } }`
+ * (e.g. after parameter field linking). Unwrap so the builder shows fields.
+ */
+export function toFormioBuilderSchema(
+  formJson: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!formJson || typeof formJson !== 'object') {
+    return createEmptyFormioSchema();
+  }
+
+  const forms = formJson.forms;
+  if (forms && typeof forms === 'object' && !Array.isArray(forms)) {
+    const formsRecord = forms as Record<string, unknown>;
+    const nested =
+      (formsRecord.main && typeof formsRecord.main === 'object'
+        ? formsRecord.main
+        : Object.values(formsRecord).find(
+            (value) => value && typeof value === 'object' && !Array.isArray(value),
+          )) ?? null;
+
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      const schema = nested as Record<string, unknown>;
+      return {
+        display: typeof schema.display === 'string' ? schema.display : 'form',
+        components: Array.isArray(schema.components)
+          ? cloneJson(schema.components)
+          : [],
+      };
+    }
+  }
+
+  if (Array.isArray(formJson.components)) {
+    return {
+      display: typeof formJson.display === 'string' ? formJson.display : 'form',
+      components: cloneJson(formJson.components),
+    };
+  }
+
+  return createEmptyFormioSchema();
+}
+
 type EditFormFieldOverride = {
   key: string;
   defaultValue?: string;

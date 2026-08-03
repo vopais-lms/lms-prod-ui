@@ -4,30 +4,24 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { DataTable } from '../shared/DataTable';
 import { FormModal, FormField, FormInput, FormSelect } from '../shared/FormModal';
-import { parametersApi } from '../../../apis/parameters';
+import {
+  capabilityOptionValue,
+  flattenCapabilityOptions,
+  parametersApi,
+  parseCapabilityOptionValue,
+} from '../../../apis/parameters';
 import type {
+  ParameterCapabilityOption,
   ParameterCreateRequest,
   ParameterListItem,
   ParameterSetting,
   ParameterType,
 } from '../../../apis/types';
-
-const PRODUCT_TOPICS = [
-  'Customer profile',
-  'Employment details',
-  'Loan details',
-  'Credit Bureau',
-  'Banking Analyses',
-] as const;
-
-const PARAMETER_TYPE_OPTIONS: { value: ParameterType; label: string }[] = [
-  { value: 'form_field_api', label: 'Form field API' },
-  { value: 'reference', label: 'Reference' },
-  { value: 'loan_application_column', label: 'Loan application column' },
-  { value: 'api_settings', label: 'API settings' },
-];
-
-type AdapterName = 'Decentro' | 'Finbox';
+import {
+  CORE_LOAN_TERM_OPTIONS,
+  PARAMETER_TYPE_OPTIONS,
+  PRODUCT_TOPICS,
+} from '../../../constants/underwritingParameterLabels';
 
 export function UnderwritingParametersPage() {
   const navigate = useNavigate();
@@ -42,14 +36,13 @@ export function UnderwritingParametersPage() {
   const [topic, setTopic] = useState<string>(PRODUCT_TOPICS[0]);
   const [scoreWeightage, setScoreWeightage] = useState('10');
   const [parameterType, setParameterType] = useState<ParameterType>('form_field_api');
-  const [referenceType, setReferenceType] = useState('');
-  const [referenceId, setReferenceId] = useState('');
-  const [loanApplicationColumn, setLoanApplicationColumn] = useState('');
-  const [adapterName, setAdapterName] = useState<AdapterName>('Decentro');
-  const [fetchMethod, setFetchMethod] = useState('');
-  const [capabilities, setCapabilities] = useState<
-    { label: string; api_adapter_fetch_method: string }[]
-  >([]);
+  const [loanApplicationColumn, setLoanApplicationColumn] = useState(
+    CORE_LOAN_TERM_OPTIONS[0].value,
+  );
+  const [capabilityOptions, setCapabilityOptions] = useState<ParameterCapabilityOption[]>(
+    [],
+  );
+  const [selectedCapability, setSelectedCapability] = useState('');
   const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
 
   const fetchRows = useCallback(async () => {
@@ -69,19 +62,22 @@ export function UnderwritingParametersPage() {
     fetchRows();
   }, [fetchRows]);
 
-  const loadCapabilities = useCallback(async (adapter: AdapterName) => {
+  const loadCapabilities = useCallback(async () => {
     setCapabilitiesLoading(true);
     try {
-      const res = await parametersApi.adapterCapabilities(adapter);
-      setCapabilities(res.data || []);
-      setFetchMethod((prev) => {
-        const methods = (res.data || []).map((c) => c.api_adapter_fetch_method);
-        return methods.includes(prev) ? prev : methods[0] || '';
+      const res = await parametersApi.allAdapterCapabilities();
+      const options = flattenCapabilityOptions(res.data);
+      setCapabilityOptions(options);
+      setSelectedCapability((prev) => {
+        if (prev && options.some((o) => capabilityOptionValue(o) === prev)) {
+          return prev;
+        }
+        return options[0] ? capabilityOptionValue(options[0]) : '';
       });
     } catch (err: any) {
-      setCapabilities([]);
-      setFetchMethod('');
-      setSubmitError(err.message || 'Failed to load adapter capabilities');
+      setCapabilityOptions([]);
+      setSelectedCapability('');
+      setSubmitError(err.message || 'Failed to load data checks');
     } finally {
       setCapabilitiesLoading(false);
     }
@@ -89,20 +85,17 @@ export function UnderwritingParametersPage() {
 
   useEffect(() => {
     if (!modalOpen || parameterType !== 'api_settings') return;
-    loadCapabilities(adapterName);
-  }, [modalOpen, parameterType, adapterName, loadCapabilities]);
+    loadCapabilities();
+  }, [modalOpen, parameterType, loadCapabilities]);
 
   const resetCreateForm = () => {
     setName('');
     setTopic(PRODUCT_TOPICS[0]);
     setScoreWeightage('10');
     setParameterType('form_field_api');
-    setReferenceType('');
-    setReferenceId('');
-    setLoanApplicationColumn('');
-    setAdapterName('Decentro');
-    setFetchMethod('');
-    setCapabilities([]);
+    setLoanApplicationColumn(CORE_LOAN_TERM_OPTIONS[0].value);
+    setSelectedCapability('');
+    setCapabilityOptions([]);
     setSubmitError(null);
   };
 
@@ -120,34 +113,23 @@ export function UnderwritingParametersPage() {
     if (parameterType === 'form_field_api') {
       return {};
     }
-    if (parameterType === 'reference') {
-      if (!referenceType.trim() || !referenceId.trim()) {
-        setSubmitError('Reference type and reference id are required.');
-        return null;
-      }
-      return {
-        reference: {
-          reference_type: referenceType.trim(),
-          reference_id: referenceId.trim(),
-        },
-      };
-    }
     if (parameterType === 'loan_application_column') {
-      if (!loanApplicationColumn.trim()) {
-        setSubmitError('Loan application column is required.');
+      if (!loanApplicationColumn) {
+        setSubmitError('Choose a core loan term.');
         return null;
       }
-      return { loan_application_column: loanApplicationColumn.trim() };
+      return { loan_application_column: loanApplicationColumn };
     }
     if (parameterType === 'api_settings') {
-      if (!adapterName || !fetchMethod) {
-        setSubmitError('Adapter and fetch method are required for API settings.');
+      const picked = parseCapabilityOptionValue(selectedCapability, capabilityOptions);
+      if (!picked) {
+        setSubmitError('Choose an external data check.');
         return null;
       }
       return {
         api_settings: {
-          api_adapter: adapterName,
-          api_adapter_fetch_method: fetchMethod,
+          api_adapter: picked.api_adapter,
+          api_adapter_fetch_method: picked.api_adapter_fetch_method,
         },
       };
     }
@@ -209,7 +191,8 @@ export function UnderwritingParametersPage() {
             Underwriting configurations
           </h2>
           <p className="text-sm text-[#6B7280]">
-            Parameters used for scoring and form-field linkage
+            Define scoring parameters and how they pull data from applications or
+            external checks
           </p>
         </div>
         <button
@@ -257,7 +240,7 @@ export function UnderwritingParametersPage() {
             placeholder="Select topic"
           />
         </FormField>
-        <FormField label="Parameter type" required>
+        <FormField label="How this parameter gets its value" required>
           <FormSelect
             value={parameterType}
             onChange={(v) => {
@@ -276,68 +259,38 @@ export function UnderwritingParametersPage() {
           />
         </FormField>
 
-        {parameterType === 'reference' && (
-          <>
-            <FormField label="Reference type" required>
-              <FormInput
-                value={referenceType}
-                onChange={setReferenceType}
-                placeholder="e.g. customer"
-              />
-            </FormField>
-            <FormField label="Reference id" required>
-              <FormInput
-                value={referenceId}
-                onChange={setReferenceId}
-                placeholder="e.g. eid or id"
-              />
-            </FormField>
-          </>
-        )}
-
         {parameterType === 'loan_application_column' && (
-          <FormField label="Loan application column" required>
-            <FormInput
+          <FormField label="Core loan term" required>
+            <FormSelect
               value={loanApplicationColumn}
               onChange={setLoanApplicationColumn}
-              placeholder="e.g. principal_amount"
+              options={CORE_LOAN_TERM_OPTIONS}
+              placeholder="Select loan term"
             />
           </FormField>
         )}
 
         {parameterType === 'api_settings' && (
-          <>
-            <FormField label="API adapter" required>
-              <FormSelect
-                value={adapterName}
-                onChange={(v) => setAdapterName(v as AdapterName)}
-                options={[
-                  { value: 'Decentro', label: 'Decentro' },
-                  { value: 'Finbox', label: 'Finbox' },
-                ]}
-                placeholder="Select adapter"
-              />
-            </FormField>
-            <FormField label="Fetch method" required>
-              <FormSelect
-                value={fetchMethod}
-                onChange={setFetchMethod}
-                options={capabilities.map((c) => ({
-                  value: c.api_adapter_fetch_method,
-                  label: `${c.label} (${c.api_adapter_fetch_method})`,
-                }))}
-                placeholder={
-                  capabilitiesLoading ? 'Loading…' : 'Select fetch method'
-                }
-                disabled={capabilitiesLoading || capabilities.length === 0}
-              />
-            </FormField>
-          </>
+          <FormField label="External data check" required>
+            <FormSelect
+              value={selectedCapability}
+              onChange={setSelectedCapability}
+              options={capabilityOptions.map((c) => ({
+                value: capabilityOptionValue(c),
+                label: c.label,
+              }))}
+              placeholder={
+                capabilitiesLoading ? 'Loading…' : 'Select a data check'
+              }
+              disabled={capabilitiesLoading || capabilityOptions.length === 0}
+            />
+          </FormField>
         )}
 
         {parameterType === 'form_field_api' && (
           <p className="text-xs text-[#6B7280]">
-            Form fields can be linked after create from the parameter detail page.
+            After creating, you can link fields already on a loan application form,
+            or design new fields with the form builder.
           </p>
         )}
       </FormModal>

@@ -17,7 +17,7 @@ export const LOAN_TYPES_HUB_SECTIONS: LoanTypesHubSection[] = [
   {
     id: 'underwriting',
     label: 'Underwriting configurations',
-    description: 'Score parameters and form-field linkages for underwriting',
+    description: 'Score parameters and data sources for underwriting',
     path: '/app/loan-types/underwriting',
   },
 ];

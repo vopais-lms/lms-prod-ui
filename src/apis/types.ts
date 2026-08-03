@@ -486,6 +486,27 @@ export interface ParameterLinkExistingFormFieldRequest {
   }[];
 }
 
+export interface ParameterAdapterCapability {
+  label: string;
+  api_adapter_fetch_method: string;
+}
+
+export interface ParameterAdapterCapabilitiesGroup {
+  adapter_name: string;
+  capabilities: ParameterAdapterCapability[];
+}
+
+export interface ParameterAllAdaptersCapabilitiesResponse {
+  data: ParameterAdapterCapabilitiesGroup[];
+}
+
+/** Flat picker row: label shown to users; adapter+method stored for API. */
+export interface ParameterCapabilityOption {
+  label: string;
+  api_adapter: string;
+  api_adapter_fetch_method: string;
+}
+
 export interface LoanTypeFormComponentsResponse {
   form_json: {
     form_component_mapping?: Record<string, unknown[]>;
