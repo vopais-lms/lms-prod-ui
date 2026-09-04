@@ -1,3 +1,6 @@
+import { refreshAccessTokenOnce } from './apiClient';
+import { clearSession } from './authSession';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export const LMS_FORM_AUTOSAVE_DEBOUNCE_MS = 800;
@@ -147,11 +150,86 @@ function buildUploadAuthHeaders(token: string | null): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
+function redirectToLoginIfNeeded() {
+  clearSession();
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
 export function createLmsFileService(
   uploadContext: FormUploadContext,
   getAccessToken: () => string | null = () => localStorage.getItem('auth_token'),
 ) {
   const uploadUrl = buildFileUploadUrl(uploadContext);
+
+  const postFile = (
+    file: File,
+    name: string,
+    formFieldKey: string,
+    progressCallback: (event: ProgressEvent) => void,
+    isRetry: boolean,
+  ): Promise<FormioFileUploadResult> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('form_field_key', formFieldKey);
+
+      xhr.open('POST', uploadUrl);
+      Object.entries(buildUploadAuthHeaders(getAccessToken())).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+
+      if (typeof progressCallback === 'function') {
+        xhr.upload.onprogress = progressCallback;
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          let responseData: Record<string, unknown> = {};
+          if (xhr.response) {
+            try {
+              responseData = JSON.parse(xhr.response) as Record<string, unknown>;
+            } catch {
+              responseData = {};
+            }
+          }
+
+          resolve({
+            storage: 'url',
+            name,
+            url: typeof responseData.url === 'string' ? responseData.url : name,
+            size: file.size,
+            type: file.type,
+            data: responseData,
+          });
+          return;
+        }
+
+        if (xhr.status === 401 && !isRetry && getAccessToken()) {
+          void refreshAccessTokenOnce().then((refreshed) => {
+            if (refreshed) {
+              postFile(file, name, formFieldKey, progressCallback, true).then(resolve, reject);
+              return;
+            }
+            redirectToLoginIfNeeded();
+            reject(xhr.response || 'Unable to upload file');
+          });
+          return;
+        }
+
+        if (xhr.status === 401) {
+          redirectToLoginIfNeeded();
+        }
+
+        reject(xhr.response || 'Unable to upload file');
+      };
+
+      xhr.onerror = () => reject(xhr);
+      xhr.onabort = () => reject(xhr);
+      xhr.send(formData);
+    });
 
   return {
     uploadFile(
@@ -166,53 +244,7 @@ export function createLmsFileService(
     ): Promise<FormioFileUploadResult> {
       const parsedOptions = parseFileOptions(options);
       const formFieldKey = parsedOptions.lmsFormFieldKey || name;
-      const token = getAccessToken();
-      const headers = buildUploadAuthHeaders(token);
-
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('form_field_key', formFieldKey);
-
-        xhr.open('POST', uploadUrl);
-        Object.entries(headers).forEach(([key, value]) => {
-          xhr.setRequestHeader(key, value);
-        });
-
-        if (typeof progressCallback === 'function') {
-          xhr.upload.onprogress = progressCallback;
-        }
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            let responseData: Record<string, unknown> = {};
-            if (xhr.response) {
-              try {
-                responseData = JSON.parse(xhr.response) as Record<string, unknown>;
-              } catch {
-                responseData = {};
-              }
-            }
-
-            resolve({
-              storage: 'url',
-              name,
-              url: typeof responseData.url === 'string' ? responseData.url : name,
-              size: file.size,
-              type: file.type,
-              data: responseData,
-            });
-            return;
-          }
-
-          reject(xhr.response || 'Unable to upload file');
-        };
-
-        xhr.onerror = () => reject(xhr);
-        xhr.onabort = () => reject(xhr);
-        xhr.send(formData);
-      });
+      return postFile(file, name, formFieldKey, progressCallback, false);
     },
 
     downloadFile(file: { url?: string; name?: string; type?: string }) {

@@ -15,3 +15,4 @@ export * from './loanCollections';
 export * from './analytics';
 export * from './parameters';
 export * from './loanTypes';
+export * from './loanTypeParameterGroupings';

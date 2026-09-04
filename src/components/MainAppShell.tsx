@@ -20,6 +20,7 @@ import { CustomerKycPage } from './main-app/pages/CustomerKycPage';
 import { LoanTypesPage } from './main-app/pages/LoanTypesPage';
 import { LoanTypesHubPage } from './main-app/pages/LoanTypesHubPage';
 import { LoanTypeDetailPage } from './main-app/pages/LoanTypeDetailPage';
+import { LoanTypeParameterGroupRulesPage } from './main-app/pages/LoanTypeParameterGroupRulesPage';
 import { UnderwritingParametersPage } from './main-app/pages/UnderwritingParametersPage';
 import { UnderwritingParameterDetailPage } from './main-app/pages/UnderwritingParameterDetailPage';
 import { LoanApplicationsPage } from './main-app/pages/LoanApplicationsPage';
@@ -37,182 +38,186 @@ import { clearSession, fetchAndStoreMenuItems, getDefaultAppRoute, getStoredMenu
 import type { MenuItem } from '../apis/types';
 
 export function MainAppShell() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [userRole, setUserRole] = useState<UserRole>('loan_officer');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [userRole, setUserRole] = useState<UserRole>('loan_officer');
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => getStoredMenuItems());
+    const [menuItems, setMenuItems] = useState<MenuItem[]>(() => getStoredMenuItems());
 
-  // Check auth and load menu
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const isMockToken = !token || token.startsWith('mock-') || token === 'dev-bypass-token';
-    if (isMockToken) {
-      clearSession();
-      navigate('/login', { replace: true });
-      return;
-    }
+    // Check auth and load menu
+    useEffect(() => {
+        const token = localStorage.getItem('auth_token');
+        const isMockToken = !token || token.startsWith('mock-') || token === 'dev-bypass-token';
+        if (isMockToken) {
+            clearSession();
+            navigate('/login', { replace: true });
+            return;
+        }
 
-    const loadMenu = async () => {
-      const cached = getStoredMenuItems();
-      if (cached.length > 0) {
-        setMenuItems(cached);
-        return;
-      }
+        const loadMenu = async () => {
+            const cached = getStoredMenuItems();
+            if (cached.length > 0) {
+                setMenuItems(cached);
+                return;
+            }
 
-      try {
-        const items = await fetchAndStoreMenuItems();
-        setMenuItems(items);
-      } catch (err) {
-        console.error('Failed to load menu items', err);
-      }
+            try {
+                const items = await fetchAndStoreMenuItems();
+                setMenuItems(items);
+            } catch (err) {
+                console.error('Failed to load menu items', err);
+            }
+        };
+
+        loadMenu();
+    }, [navigate]);
+
+    const getUserName = (role: UserRole) => {
+        switch (role) {
+            case 'md':
+                return 'Vikram S.';
+            case 'super_admin':
+                return 'Admin User';
+            case 'branch_manager':
+                return 'Manager User';
+            case 'loan_officer':
+            default:
+                return 'Rajesh K.';
+        }
     };
 
-    loadMenu();
-  }, [navigate]);
+    const getUserRoleLabel = (role: UserRole) => {
+        switch (role) {
+            case 'md':
+                return 'MD';
+            case 'super_admin':
+                return 'Super Admin';
+            case 'branch_manager':
+                return 'Branch Manager';
+            case 'loan_officer':
+            default:
+                return 'Loan Officer';
+        }
+    };
 
-  const getUserName = (role: UserRole) => {
-    switch (role) {
-      case 'md':
-        return 'Vikram S.';
-      case 'super_admin':
-        return 'Admin User';
-      case 'branch_manager':
-        return 'Manager User';
-      case 'loan_officer':
-      default:
-        return 'Rajesh K.';
-    }
-  };
+    const handleNavigate = (route: string) => {
+        navigate(`/app${route}`);
+    };
 
-  const getUserRoleLabel = (role: UserRole) => {
-    switch (role) {
-      case 'md':
-        return 'MD';
-      case 'super_admin':
-        return 'Super Admin';
-      case 'branch_manager':
-        return 'Branch Manager';
-      case 'loan_officer':
-      default:
-        return 'Loan Officer';
-    }
-  };
+    // Get current route relative to /app for sidebar highlighting
+    const currentRoute = location.pathname.replace('/app', '') || '/workqueue';
 
-  const handleNavigate = (route: string) => {
-    navigate(`/app${route}`);
-  };
+    const handleLogout = () => {
+        clearSession();
+        navigate('/login', { replace: true });
+    };
 
-  // Get current route relative to /app for sidebar highlighting
-  const currentRoute = location.pathname.replace('/app', '') || '/workqueue';
+    /** Placeholder page for routes under construction */
+    const PlaceholderPage = () => (
+        <div className="flex items-center justify-center h-[60vh]">
+            <div className="text-center space-y-4">
+                <h2 className="text-2xl font-semibold text-[#111827]">
+                    {currentRoute.slice(1).charAt(0).toUpperCase() + currentRoute.slice(2)}
+                </h2>
+                <p className="text-[#6B7280]">This module is under construction</p>
+            </div>
+        </div>
+    );
 
-  const handleLogout = () => {
-    clearSession();
-    navigate('/login', { replace: true });
-  };
-
-  /** Placeholder page for routes under construction */
-  const PlaceholderPage = () => (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="text-center space-y-4">
-        <h2 className="text-2xl font-semibold text-[#111827]">
-          {currentRoute.slice(1).charAt(0).toUpperCase() + currentRoute.slice(2)}
-        </h2>
-        <p className="text-[#6B7280]">This module is under construction</p>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-[var(--color-page-bg)]">
-      <Sidebar
-        currentRoute={currentRoute}
-        userRole={userRole}
-        collapsed={sidebarCollapsed}
-        onNavigate={handleNavigate}
-        menuItems={menuItems}
-      />
-
-      <div
-        className="transition-all duration-200"
-        style={{
-          marginLeft: sidebarCollapsed ? '64px' : '240px',
-          paddingTop: '56px',
-        }}
-      >
-        <GlobalHeader
-          userRole={getUserRoleLabel(userRole)}
-          userName={getUserName(userRole)}
-          branch={userRole === 'loan_officer' ? 'Jaipur' : undefined}
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onLogout={handleLogout}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-
-        <main className="p-8">
-          <Routes>
-            <Route index element={<Navigate to={getDefaultAppRoute(menuItems).replace(/^\//, '')} replace />} />
-            {/* Existing pages */}
-            <Route path="executive" element={<ExecutiveCommand />} />
-            <Route path="workqueue" element={<LoanOfficerWorkQueue />} />
-            <Route path="portfolio" element={<PortfolioView />} />
-            <Route path="actions" element={<ActionsManagement />} />
-            <Route path="risk" element={<RiskManagement />} />
-
-            {/* New CRUD pages */}
-            <Route path="employees" element={<EmployeesPage />} />
-            <Route path="designations" element={<DesignationsPage />} />
-            <Route path="branches" element={<BranchesPage />} />
-            <Route path="branch" element={<BranchesPage />} />
-            <Route path="profiles" element={<ProfilesPage />} />
-            <Route path="customers" element={<CustomersPage />} />
-            <Route path="loan-types" element={<LoanTypesHubPage />}>
-              <Route index element={<LoanTypesPage />} />
-              <Route path="underwriting" element={<UnderwritingParametersPage />} />
-              <Route
-                path="underwriting/:parameterId"
-                element={<UnderwritingParameterDetailPage />}
-              />
-            </Route>
-            <Route path="loan-types/:loanTypeId" element={<LoanTypeDetailPage />} />
-            <Route path="loans" element={<LoanApplicationsPage />} />
-            <Route path="loans/new" element={<LoanApplicationCreatePage />} />
-            <Route
-              path="loans/:eid/moratorium-requests/new"
-              element={<MoratoriumRequestCreatePage />}
+    return (
+        <div className="min-h-screen bg-[var(--color-page-bg)]">
+            <Sidebar
+                currentRoute={currentRoute}
+                userRole={userRole}
+                collapsed={sidebarCollapsed}
+                onNavigate={handleNavigate}
+                menuItems={menuItems}
             />
-            <Route
-              path="loans/:eid/moratorium-requests/:moratoriumRequestEid"
-              element={<MoratoriumRequestDetailPage />}
-            />
-            <Route
-              path="loans/:eid/disbursement-requests/new"
-              element={<DisbursementRequestCreatePage />}
-            />
-            <Route
-              path="loans/:eid/disbursement-requests/:disbursementRequestEid"
-              element={<DisbursementRequestDetailPage />}
-            />
-            <Route
-              path="loans/:eid/collections/new"
-              element={<LoanCollectionCreatePage />}
-            />
-            <Route
-              path="loans/:eid/collections/:collectionId"
-              element={<LoanCollectionDetailPage />}
-            />
-            <Route path="loans/:eid" element={<LoanApplicationDetailPage />} />
-            <Route path="repayments" element={<RepaymentsPage />} />
-            <Route path="reports" element={<ReportsAnalyticsPage />} />
-            <Route path="tenant-settings" element={<PlaceholderPage />} />
-            <Route path="customer-kyc/:customerEid" element={<CustomerKycPage />} />
 
-            {/* Catch-all placeholder */}
-            <Route path="*" element={<PlaceholderPage />} />
-          </Routes>
-        </main>
-      </div>
-    </div>
-  );
+            <div
+                className="transition-all duration-200"
+                style={{
+                    marginLeft: sidebarCollapsed ? '64px' : '240px',
+                    paddingTop: '56px',
+                }}
+            >
+                <GlobalHeader
+                    userRole={getUserRoleLabel(userRole)}
+                    userName={getUserName(userRole)}
+                    branch={userRole === 'loan_officer' ? 'Jaipur' : undefined}
+                    onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    onLogout={handleLogout}
+                    sidebarCollapsed={sidebarCollapsed}
+                />
+
+                <main className="p-8">
+                    <Routes>
+                        <Route index element={<Navigate to={getDefaultAppRoute(menuItems).replace(/^\//, '')} replace />} />
+                        {/* Existing pages */}
+                        <Route path="executive" element={<ExecutiveCommand />} />
+                        <Route path="workqueue" element={<LoanOfficerWorkQueue />} />
+                        <Route path="portfolio" element={<PortfolioView />} />
+                        <Route path="actions" element={<ActionsManagement />} />
+                        <Route path="risk" element={<RiskManagement />} />
+
+                        {/* New CRUD pages */}
+                        <Route path="employees" element={<EmployeesPage />} />
+                        <Route path="designations" element={<DesignationsPage />} />
+                        <Route path="branches" element={<BranchesPage />} />
+                        <Route path="branch" element={<BranchesPage />} />
+                        <Route path="profiles" element={<ProfilesPage />} />
+                        <Route path="customers" element={<CustomersPage />} />
+                        <Route path="loan-types" element={<LoanTypesHubPage />}>
+                            <Route index element={<LoanTypesPage />} />
+                            <Route path="underwriting" element={<UnderwritingParametersPage />} />
+                            <Route
+                                path="underwriting/:parameterId"
+                                element={<UnderwritingParameterDetailPage />}
+                            />
+                        </Route>
+                        <Route path="loan-types/:loanTypeId" element={<LoanTypeDetailPage />} />
+                        <Route
+                            path="loan-types/:loanTypeId/parameter-groupings/:groupId/rules"
+                            element={<LoanTypeParameterGroupRulesPage />}
+                        />
+                        <Route path="loans" element={<LoanApplicationsPage />} />
+                        <Route path="loans/new" element={<LoanApplicationCreatePage />} />
+                        <Route
+                            path="loans/:eid/moratorium-requests/new"
+                            element={<MoratoriumRequestCreatePage />}
+                        />
+                        <Route
+                            path="loans/:eid/moratorium-requests/:moratoriumRequestEid"
+                            element={<MoratoriumRequestDetailPage />}
+                        />
+                        <Route
+                            path="loans/:eid/disbursement-requests/new"
+                            element={<DisbursementRequestCreatePage />}
+                        />
+                        <Route
+                            path="loans/:eid/disbursement-requests/:disbursementRequestEid"
+                            element={<DisbursementRequestDetailPage />}
+                        />
+                        <Route
+                            path="loans/:eid/collections/new"
+                            element={<LoanCollectionCreatePage />}
+                        />
+                        <Route
+                            path="loans/:eid/collections/:collectionId"
+                            element={<LoanCollectionDetailPage />}
+                        />
+                        <Route path="loans/:eid" element={<LoanApplicationDetailPage />} />
+                        <Route path="repayments" element={<RepaymentsPage />} />
+                        <Route path="reports" element={<ReportsAnalyticsPage />} />
+                        <Route path="tenant-settings" element={<PlaceholderPage />} />
+                        <Route path="customer-kyc/:customerEid" element={<CustomerKycPage />} />
+
+                        {/* Catch-all placeholder */}
+                        <Route path="*" element={<PlaceholderPage />} />
+                    </Routes>
+                </main>
+            </div>
+        </div>
+    );
 }

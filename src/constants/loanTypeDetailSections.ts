@@ -1,4 +1,4 @@
-export type LoanTypeDetailSectionId = 'forms' | 'loan-approvals';
+export type LoanTypeDetailSectionId = 'forms' | 'loan-approvals' | 'underwriting-config';
 
 export type LoanTypeDetailSection = {
   id: LoanTypeDetailSectionId;
@@ -16,5 +16,10 @@ export const LOAN_TYPE_DETAIL_SECTIONS: LoanTypeDetailSection[] = [
     id: 'loan-approvals',
     label: 'Loan approvals',
     description: 'Define approval steps and allowed designations',
+  },
+  {
+    id: 'underwriting-config',
+    label: 'Underwriting configuration',
+    description: 'Manage verification and scoring parameter groups for this loan type',
   },
 ];

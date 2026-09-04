@@ -23,6 +23,7 @@ import {
     type LoanTypeDetailSectionId,
 } from '../../../constants/loanTypeDetailSections';
 import { LoanTypeApprovalsSection } from './LoanTypeApprovalsSection';
+import { LoanTypeUnderwritingConfigSection } from './LoanTypeUnderwritingConfigSection';
 
 export function LoanTypeDetailPage() {
     const navigate = useNavigate();
@@ -231,8 +232,8 @@ export function LoanTypeDetailPage() {
                                         type="button"
                                         onClick={() => handleSectionSelect(section.id)}
                                         className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${isActive
-                                                ? 'bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8]'
-                                                : 'border border-transparent text-[#374151] hover:bg-[#F9FAFB]'
+                                            ? 'bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8]'
+                                            : 'border border-transparent text-[#374151] hover:bg-[#F9FAFB]'
                                             }`}
                                     >
                                         <p className="text-sm font-medium">{section.label}</p>
@@ -255,8 +256,8 @@ export function LoanTypeDetailPage() {
                                             type="button"
                                             onClick={() => handlePurposeSelect(item.purpose)}
                                             className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${isActive
-                                                    ? 'bg-[#F3F4F6] border border-[#E5E7EB] text-[#111827]'
-                                                    : 'border border-transparent text-[#374151] hover:bg-[#F9FAFB]'
+                                                ? 'bg-[#F3F4F6] border border-[#E5E7EB] text-[#111827]'
+                                                : 'border border-transparent text-[#374151] hover:bg-[#F9FAFB]'
                                                 }`}
                                         >
                                             <p className="text-sm font-medium">{item.label}</p>
@@ -318,7 +319,7 @@ export function LoanTypeDetailPage() {
                                 )}
                             </div>
                         </>
-                    ) : (
+                    ) : activeSection === 'loan-approvals' ? (
                         <div className="p-6">
                             <div className="mb-4">
                                 <h3 className="text-base font-semibold text-[#111827]">Loan approvals</h3>
@@ -327,6 +328,16 @@ export function LoanTypeDetailPage() {
                                 </p>
                             </div>
                             <LoanTypeApprovalsSection loanTypeId={parsedLoanTypeId} />
+                        </div>
+                    ) : (
+                        <div className="p-6">
+                            <div className="mb-4">
+                                <h3 className="text-base font-semibold text-[#111827]">Underwriting configuration</h3>
+                                <p className="text-sm text-[#6B7280]">
+                                    Organize verification and scoring parameter groups, then edit rules per group.
+                                </p>
+                            </div>
+                            <LoanTypeUnderwritingConfigSection loanTypeId={parsedLoanTypeId} />
                         </div>
                     )}
                 </section>

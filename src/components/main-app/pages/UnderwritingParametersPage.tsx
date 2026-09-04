@@ -188,7 +188,7 @@ export function UnderwritingParametersPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-[#111827]">
-            Underwriting configurations
+            Global Parameter Configurations
           </h2>
           <p className="text-sm text-[#6B7280]">
             Generic scoring parameters. Topic is only a group label — each

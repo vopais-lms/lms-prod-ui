@@ -67,7 +67,8 @@ const refreshAccessToken = async (): Promise<boolean> => {
   }
 };
 
-const refreshAccessTokenOnce = (): Promise<boolean> => {
+/** Single-flight refresh for apiClient and callers outside fetch (e.g. Form.io XHR). */
+export const refreshAccessTokenOnce = (): Promise<boolean> => {
   if (!refreshPromise) {
     refreshPromise = refreshAccessToken().finally(() => {
       refreshPromise = null;
