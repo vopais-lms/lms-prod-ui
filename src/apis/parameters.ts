@@ -16,6 +16,23 @@ export const parametersApi = {
   list: (params: { page: number; per_page: number }) =>
     api.get<ParameterListResponse>('/parameters/', { params }),
 
+  listAll: async () => {
+    const perPage = 100;
+    let page = 1;
+    const data: ParameterListResponse['data'] = [];
+    let total = Infinity;
+    while (data.length < total) {
+      const res = await api.get<ParameterListResponse>('/parameters/', {
+        params: { page, per_page: perPage },
+      });
+      total = res.total_records;
+      data.push(...res.data);
+      if (res.data.length === 0) break;
+      page += 1;
+    }
+    return data;
+  },
+
   get: (id: number) => api.get<ParameterDetail>(`/parameters/${id}`),
 
   create: (data: ParameterCreateRequest) =>

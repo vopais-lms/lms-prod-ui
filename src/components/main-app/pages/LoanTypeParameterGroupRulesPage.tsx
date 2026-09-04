@@ -3,10 +3,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeftIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useNavigate, useParams } from 'react-router-dom';
 import { loanTypeParameterGroupingsApi } from '../../../apis/loanTypeParameterGroupings';
-import { loanTypesApi } from '../../../apis/loanTypes';
+import { parametersApi } from '../../../apis/parameters';
 import type { ParameterGroupType } from '../../../apis/types';
 import { PageShell } from '../shared/PageShell';
 import { parseScoringRules, serializeScoringRules } from '../../../utils/scoringRuleSerialization';
+import {
+  toRuleFieldOptions,
+  type RuleFieldOption,
+} from '../../../utils/scoringRuleFieldOptions';
 import { validateScoringRules, type ScoringRuleNode } from '../../../utils/scoringRuleValidation';
 import { ScoringRuleEditor } from './ScoringRuleEditor';
 
@@ -20,7 +24,7 @@ export function LoanTypeParameterGroupRulesPage() {
   const [loanTypeName, setLoanTypeName] = useState('');
   const [groupLabel, setGroupLabel] = useState('');
   const [rules, setRules] = useState<ScoringRuleNode[]>([]);
-  const [fieldOptions, setFieldOptions] = useState<string[]>([]);
+  const [fieldOptions, setFieldOptions] = useState<RuleFieldOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,9 +43,9 @@ export function LoanTypeParameterGroupRulesPage() {
     setError(null);
     setSaveSuccess(false);
     try {
-      const [detail, fieldsRes] = await Promise.all([
+      const [detail, parameterRows] = await Promise.all([
         loanTypeParameterGroupingsApi.get(parsedLoanTypeId, parsedGroupId),
-        loanTypesApi.getInputFormComponents(parsedLoanTypeId),
+        parametersApi.listAll(),
       ]);
 
       setGroupType((detail.type_of_group as ParameterGroupType) || 'scoring');
@@ -49,15 +53,7 @@ export function LoanTypeParameterGroupRulesPage() {
       setGroupLabel(detail.name || `Group #${detail.id}`);
       setRules(parseScoringRules(detail.scoring_rule_json));
       setHasChildren((detail.children_parameter_groupings || []).length > 0);
-
-      const mapping = fieldsRes.form_json?.form_component_mapping || {};
-      const keys = new Set<string>();
-      Object.values(mapping).forEach((list) => {
-        (list || []).forEach((component: any) => {
-          if (component?.key) keys.add(String(component.key));
-        });
-      });
-      setFieldOptions(Array.from(keys).sort());
+      setFieldOptions(toRuleFieldOptions(parameterRows));
     } catch (err: any) {
       setError(err.message || 'Failed to load parameter group rules');
     } finally {

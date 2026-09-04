@@ -1,5 +1,11 @@
 // @ts-nocheck
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { FormSelect } from '../shared/FormModal';
+import {
+  filterRuleFieldOptions,
+  ruleFieldOptionValue,
+  type RuleFieldOption,
+} from '../../../utils/scoringRuleFieldOptions';
 import {
   createEmptyConditionalNode,
   createEmptyFormulaNode,
@@ -12,7 +18,7 @@ import {
 type ScoringRuleEditorProps = {
   nodes: ScoringRuleNode[];
   groupType: 'verification' | 'scoring';
-  fieldOptions: string[];
+  fieldOptions: RuleFieldOption[];
   onChange: (nodes: ScoringRuleNode[]) => void;
   readOnly?: boolean;
 };
@@ -20,7 +26,7 @@ type ScoringRuleEditorProps = {
 type ScoringRuleNodeEditorProps = {
   node: ScoringRuleNode;
   groupType: 'verification' | 'scoring';
-  fieldOptions: string[];
+  fieldOptions: RuleFieldOption[];
   depth: number;
   onChange: (node: ScoringRuleNode) => void;
   onRemove?: () => void;
@@ -28,6 +34,7 @@ type ScoringRuleNodeEditorProps = {
 };
 
 const OPERATORS = ['==', '!=', '>', '<', '>=', '<='];
+const FORMULA_OPERATORS = ['+', '-', '*', '/', '%'];
 
 function updateCondition(
   node: ScoringRuleNode,
@@ -55,20 +62,80 @@ function normalizeRuleMatrix(rule: ScoringRuleNode['rule']): ConditionDict[][] {
   return [[{ field: '', operator: '==', value: '' }]];
 }
 
+function ParameterFieldSelect({
+  value,
+  options,
+  onChange,
+  disabled = false,
+  placeholder = 'Select parameter',
+}: {
+  value: string;
+  options: RuleFieldOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const selectOptions = options.map((option) => ({
+    value: ruleFieldOptionValue(option),
+    label: option.name,
+  }));
+  if (value && !selectOptions.some((option) => option.value === value)) {
+    selectOptions.unshift({ value, label: value });
+  }
+
+  return (
+    <FormSelect
+      value={value}
+      onChange={onChange}
+      options={selectOptions}
+      placeholder={placeholder}
+      disabled={disabled}
+    />
+  );
+}
+
+function defaultExpressionRule(options: RuleFieldOption[]): Array<string | number> {
+  const first = options[0] ? ruleFieldOptionValue(options[0]) : '';
+  const second = options[1]
+    ? ruleFieldOptionValue(options[1])
+    : first;
+  return [first, second, '+'];
+}
+
+function isFormulaOperator(token: string | number): boolean {
+  return FORMULA_OPERATORS.includes(String(token));
+}
+
 function FormulaNodeEditor({
   node,
+  fieldOptions,
   onChange,
   onRemove,
   readOnly = false,
 }: {
   node: ScoringRuleNode;
+  fieldOptions: RuleFieldOption[];
   onChange: (node: ScoringRuleNode) => void;
   onRemove?: () => void;
   readOnly?: boolean;
 }) {
   const rule = (Array.isArray(node.rule) ? node.rule : []) as Array<string | number>;
   const constantMode = isConstantFormula(rule);
-  const formulaText = rule.join(' ');
+  const formulaOptions = filterRuleFieldOptions(fieldOptions, 'formula');
+
+  const updateToken = (index: number, token: string | number) => {
+    const next = [...rule];
+    next[index] = token;
+    onChange({ ...node, rule: next });
+  };
+
+  const removeToken = (index: number) => {
+    onChange({ ...node, rule: rule.filter((_, i) => i !== index) });
+  };
+
+  const addToken = (token: string | number) => {
+    onChange({ ...node, rule: [...rule, token] });
+  };
 
   return (
     <div className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-4 space-y-3">
@@ -97,7 +164,7 @@ function FormulaNodeEditor({
           <button
             type="button"
             onClick={() =>
-              onChange({ ...node, rule: ['field_a', 'field_b', '+'] })
+              onChange({ ...node, rule: defaultExpressionRule(formulaOptions) })
             }
             className={`rounded-md px-2.5 py-1 text-xs font-medium ${
               !constantMode
@@ -122,21 +189,111 @@ function FormulaNodeEditor({
           placeholder="Score value"
         />
       ) : (
-        <input
-          value={formulaText}
-          disabled={readOnly}
-          onChange={(event) =>
-            onChange({
-              ...node,
-              rule: event.target.value.split(/\s+/).filter(Boolean),
-            })
-          }
-          placeholder="field_a field_b +"
-          className="w-full rounded-md border border-[#D1D5DB] px-3 py-2 text-sm font-mono"
-        />
+        <div className="space-y-2">
+          {rule.map((token, index) => {
+            const tokenKey = `formula-token-${index}`;
+            if (isFormulaOperator(token)) {
+              return (
+                <div key={tokenKey} className="flex items-center gap-2">
+                  <select
+                    value={String(token)}
+                    disabled={readOnly}
+                    onChange={(event) => updateToken(index, event.target.value)}
+                    className="w-full rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
+                  >
+                    {FORMULA_OPERATORS.map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => removeToken(index)}
+                      className="rounded p-2 text-red-600 hover:bg-red-50"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            }
+
+            if (typeof token === 'number') {
+              return (
+                <div key={tokenKey} className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={token}
+                    disabled={readOnly}
+                    onChange={(event) =>
+                      updateToken(index, Number(event.target.value))
+                    }
+                    className="w-full rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
+                  />
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => removeToken(index)}
+                      className="rounded p-2 text-red-600 hover:bg-red-50"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            }
+
+            return (
+              <div key={tokenKey} className="flex items-center gap-2">
+                <ParameterFieldSelect
+                  value={String(token)}
+                  options={formulaOptions}
+                  onChange={(next) => updateToken(index, next)}
+                  disabled={readOnly}
+                />
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => removeToken(index)}
+                    className="rounded p-2 text-red-600 hover:bg-red-50"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+          {!readOnly ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => addToken(formulaOptions[0] ? ruleFieldOptionValue(formulaOptions[0]) : '')}
+                className="text-xs font-medium text-[#B45309] hover:underline"
+              >
+                + Parameter
+              </button>
+              <button
+                type="button"
+                onClick={() => addToken(0)}
+                className="text-xs font-medium text-[#B45309] hover:underline"
+              >
+                + Number
+              </button>
+              <button
+                type="button"
+                onClick={() => addToken('+')}
+                className="text-xs font-medium text-[#B45309] hover:underline"
+              >
+                + Operator
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
       <p className="text-xs text-[#92400E]">
-        Use a fixed score or a postfix expression with field keys and operators (+ - * / %).
+        Use a fixed score or a postfix expression. Formula parameters exclude boolean and string types.
       </p>
     </div>
   );
@@ -152,6 +309,7 @@ function ScoringRuleNodeEditor({
   readOnly = false,
 }: ScoringRuleNodeEditorProps) {
   const atMaxDepth = depth >= MAX_CONDITIONAL_DEPTH;
+  const conditionOptions = filterRuleFieldOptions(fieldOptions, 'condition');
 
   if (node.type === 'conditional') {
     const conditions = normalizeRuleMatrix(node.rule);
@@ -220,21 +378,14 @@ function ScoringRuleNodeEditor({
               <div className="space-y-2">
                 {orGroup.map((cond, orIndex) => (
                   <div key={`or-${andIndex}-${orIndex}`} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_1fr_auto]">
-                    <input
-                      list={`fields-${depth}-${andIndex}-${orIndex}`}
-                      value={cond.field}
-                      disabled={readOnly}
-                      onChange={(event) =>
-                        onChange(updateCondition(node, andIndex, orIndex, { field: event.target.value }))
+                    <ParameterFieldSelect
+                      value={String(cond.field ?? '')}
+                      options={conditionOptions}
+                      onChange={(next) =>
+                        onChange(updateCondition(node, andIndex, orIndex, { field: next }))
                       }
-                      placeholder="Field key"
-                      className="rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
+                      disabled={readOnly}
                     />
-                    <datalist id={`fields-${depth}-${andIndex}-${orIndex}`}>
-                      {fieldOptions.map((field) => (
-                        <option key={field} value={field} />
-                      ))}
-                    </datalist>
                     <select
                       value={cond.operator}
                       disabled={readOnly}
@@ -338,6 +489,7 @@ function ScoringRuleNodeEditor({
   return (
     <FormulaNodeEditor
       node={node}
+      fieldOptions={fieldOptions}
       onChange={onChange}
       onRemove={onRemove}
       readOnly={readOnly}
