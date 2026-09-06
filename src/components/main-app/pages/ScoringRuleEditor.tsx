@@ -53,6 +53,7 @@ type ScoringRuleNodeEditorProps = {
 };
 
 const OPERATORS = ['==', '!=', '>', '<', '>=', '<='] as const;
+const EQUALITY_OPERATORS = ['==', '!='] as const;
 const OPERATOR_LABELS: Record<(typeof OPERATORS)[number], string> = {
     '==': 'equals',
     '!=': 'not equals',
@@ -61,8 +62,53 @@ const OPERATOR_LABELS: Record<(typeof OPERATORS)[number], string> = {
     '>=': 'greater than or equal to',
     '<=': 'less than or equal to',
 };
-function operatorLabel(operator: string): string {
+const BOOLEAN_OPERATOR_LABELS: Record<(typeof EQUALITY_OPERATORS)[number], string> = {
+    '==': 'is',
+    '!=': 'is not',
+};
+
+function operatorsForKind(kind: ReturnType<typeof ruleValueInputKind>): readonly string[] {
+    if (kind === 'boolean' || kind === 'string') return EQUALITY_OPERATORS;
+    return OPERATORS;
+}
+
+function operatorLabel(operator: string, kind?: ReturnType<typeof ruleValueInputKind>): string {
+    if (kind === 'boolean' && (operator === '==' || operator === '!=')) {
+        return BOOLEAN_OPERATOR_LABELS[operator];
+    }
     return OPERATOR_LABELS[operator as (typeof OPERATORS)[number]] || operator;
+}
+
+function coerceOperatorForKind(
+    operator: string,
+    kind: ReturnType<typeof ruleValueInputKind>,
+): string {
+    return operatorsForKind(kind).includes(operator) ? operator : '==';
+}
+
+function ConditionOperatorSelect({
+    operator,
+    dataType,
+    onChange,
+}: {
+    operator: string;
+    dataType: string | undefined;
+    onChange: (operator: string) => void;
+}) {
+    const kind = ruleValueInputKind(dataType);
+    return (
+        <select
+            value={coerceOperatorForKind(operator, kind)}
+            onChange={(event) => onChange(event.target.value)}
+            className="rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
+        >
+            {operatorsForKind(kind).map((op) => (
+                <option key={op} value={op}>
+                    {operatorLabel(op, kind)}
+                </option>
+            ))}
+        </select>
+    );
 }
 
 function ParameterFieldSelect({
@@ -119,8 +165,8 @@ function ConditionValueInput({
                 onChange={(event) => onChange(event.target.value === 'true')}
                 className="w-full px-3 py-2 text-sm border border-[#D1D5DB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
             >
-                <option value="true">true</option>
-                <option value="false">false</option>
+                <option value="true">Present</option>
+                <option value="false">Not Present</option>
             </select>
         );
     }
@@ -170,14 +216,22 @@ function configuredConditionGroups(rule: ScoringRuleNode['rule']): ConditionDict
         .filter((group) => group.length > 0);
 }
 
-function formatConditionValue(value: string | number | boolean): string {
-    if (typeof value === 'boolean') return value ? 'true' : 'false';
+function formatConditionValue(
+    value: string | number | boolean,
+    kind?: ReturnType<typeof ruleValueInputKind>,
+): string {
+    if (kind === 'boolean' || typeof value === 'boolean') {
+        const present = coerceConditionValue('boolean', value);
+        return present ? 'Present' : 'Not Present';
+    }
     return String(value ?? '');
 }
 
 function formatConditionChip(cond: ConditionDict, options: RuleFieldOption[]): string {
-    const parameter = findRuleFieldOption(options, String(cond.field ?? ''))?.name || cond.field || 'Parameter';
-    return `${parameter} ${operatorLabel(cond.operator)} ${formatConditionValue(cond.value)}`;
+    const fieldOption = findRuleFieldOption(options, String(cond.field ?? ''));
+    const kind = ruleValueInputKind(fieldOption?.dataType);
+    const parameter = fieldOption?.name || cond.field || 'Parameter';
+    return `${parameter} ${operatorLabel(cond.operator, kind)} ${formatConditionValue(cond.value, kind)}`;
 }
 
 function defaultExpressionGroup(options: RuleFieldOption[]): FormulaGroup {
@@ -550,21 +604,19 @@ function ConditionGroupModal({
                                 const nextKind = ruleValueInputKind(selected?.dataType);
                                 updateRow(index, {
                                     field: next,
+                                    operator: coerceOperatorForKind(cond.operator, nextKind),
                                     ...(previousKind === nextKind ? {} : { value: defaultConditionValue(nextKind) }),
                                 });
                             }}
                         />
-                        <select
-                            value={cond.operator}
-                            onChange={(event) => updateRow(index, { operator: event.target.value })}
-                            className="rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
-                        >
-                            {OPERATORS.map((op) => (
-                                <option key={op} value={op}>
-                                    {operatorLabel(op)}
-                                </option>
-                            ))}
-                        </select>
+                        <ConditionOperatorSelect
+                            operator={cond.operator}
+                            dataType={
+                                findRuleFieldOption(fieldOptions, String(cond.field ?? ''))
+                                    ?.dataType
+                            }
+                            onChange={(next) => updateRow(index, { operator: next })}
+                        />
                         <ConditionValueInput
                             dataType={findRuleFieldOption(fieldOptions, String(cond.field ?? ''))?.dataType}
                             value={cond.value}
