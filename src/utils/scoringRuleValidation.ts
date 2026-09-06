@@ -15,7 +15,7 @@ export interface ScoringRuleNode {
 export const MAX_CONDITIONAL_DEPTH = 10;
 
 const VALID_OPERATORS = new Set(['==', '!=', '>', '<', '>=', '<=']);
-const FORMULA_OPERATORS = new Set(['+', '-', '*', '/', '%']);
+const FORMULA_OPERATORS = new Set(['+', '-', '*', '/', '%', '**']);
 
 export function isConstantFormula(rule: Array<string | number>): boolean {
   return rule.length === 1 && typeof rule[0] === 'number';

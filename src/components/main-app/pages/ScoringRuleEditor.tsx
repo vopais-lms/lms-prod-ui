@@ -13,6 +13,18 @@ import {
     type RuleFieldOption,
 } from '../../../utils/scoringRuleFieldOptions';
 import {
+    emptyFormulaGroup,
+    formatFormulaExpr,
+    formatFormulaOp,
+    FORMULA_OPS,
+    groupToPostfix,
+    postfixToGroup,
+    validateFormulaGroup,
+    type FormulaExpr,
+    type FormulaGroup,
+    type FormulaOp,
+} from '../../../utils/formulaExpression';
+import {
     createEmptyConditionalNode,
     createEmptyFormulaNode,
     isConstantFormula,
@@ -49,8 +61,6 @@ const OPERATOR_LABELS: Record<(typeof OPERATORS)[number], string> = {
     '>=': 'greater than or equal to',
     '<=': 'less than or equal to',
 };
-const FORMULA_OPERATORS = ['+', '-', '*', '/', '%'];
-
 function operatorLabel(operator: string): string {
     return OPERATOR_LABELS[operator as (typeof OPERATORS)[number]] || operator;
 }
@@ -170,16 +180,189 @@ function formatConditionChip(cond: ConditionDict, options: RuleFieldOption[]): s
     return `${parameter} ${operatorLabel(cond.operator)} ${formatConditionValue(cond.value)}`;
 }
 
-function defaultExpressionRule(options: RuleFieldOption[]): Array<string | number> {
+function defaultExpressionGroup(options: RuleFieldOption[]): FormulaGroup {
     const first = options[0] ? ruleFieldOptionValue(options[0]) : '';
-    const second = options[1]
-        ? ruleFieldOptionValue(options[1])
-        : first;
-    return [first, second, '+'];
+    const second = options[1] ? ruleFieldOptionValue(options[1]) : first;
+    return {
+        kind: 'group',
+        items: [
+            { expr: { kind: 'parameter', field: first }, op: '+' },
+            { expr: { kind: 'parameter', field: second } },
+        ],
+    };
 }
 
-function isFormulaOperator(token: string | number): boolean {
-    return FORMULA_OPERATORS.includes(String(token));
+function parameterDisplayName(field: string, options: RuleFieldOption[]): string {
+    return findRuleFieldOption(options, field)?.name || field || 'parameter';
+}
+
+function cloneFormulaGroup(group: FormulaGroup): FormulaGroup {
+    return structuredClone(group);
+}
+
+function FormulaGroupEditor({
+    group,
+    fieldOptions,
+    onChange,
+}: {
+    group: FormulaGroup;
+    fieldOptions: RuleFieldOption[];
+    onChange: (next: FormulaGroup) => void;
+}) {
+    const setItems = (items: FormulaGroup['items']) => onChange({ kind: 'group', items });
+
+    const updateItemExpr = (index: number, expr: FormulaExpr) => {
+        setItems(group.items.map((item, i) => (i === index ? { ...item, expr } : item)));
+    };
+
+    const updateItemOp = (index: number, op: FormulaOp) => {
+        setItems(group.items.map((item, i) => (i === index ? { ...item, op } : item)));
+    };
+
+    const addItem = (expr: FormulaExpr) => {
+        const items = group.items.map((item) => ({ ...item }));
+        if (items.length > 0 && !items[items.length - 1].op) {
+            items[items.length - 1].op = '+';
+        }
+        items.push({ expr });
+        setItems(items);
+    };
+
+    const removeLast = () => {
+        if (group.items.length <= 1) {
+            onChange(emptyFormulaGroup());
+            return;
+        }
+        const items = group.items.slice(0, -1).map((item) => ({ ...item }));
+        delete items[items.length - 1].op;
+        setItems(items);
+    };
+
+    return (
+        <div className="rounded-md border border-[#FDE68A] bg-[#FFFBEB] p-3 space-y-3">
+            <p className="text-xs font-medium text-[#92400E]">(</p>
+            <div className="space-y-3">
+                {group.items.map((item, index) => (
+                    <div key={`formula-item-${index}`} className="space-y-2">
+                        {item.expr.kind === 'group' ? (
+                            <FormulaGroupEditor
+                                group={item.expr}
+                                fieldOptions={fieldOptions}
+                                onChange={(next) => updateItemExpr(index, next)}
+                            />
+                        ) : item.expr.kind === 'parameter' ? (
+                            <ParameterFieldSelect
+                                value={item.expr.field}
+                                options={fieldOptions}
+                                onChange={(next) =>
+                                    updateItemExpr(index, { kind: 'parameter', field: next })
+                                }
+                            />
+                        ) : (
+                            <FormInput
+                                type="number"
+                                inputMode="decimal"
+                                value={String(item.expr.value)}
+                                onChange={(next) =>
+                                    updateItemExpr(index, {
+                                        kind: 'number',
+                                        value: next === '' ? 0 : Number(next),
+                                    })
+                                }
+                                placeholder="Number"
+                            />
+                        )}
+                        {index < group.items.length - 1 ? (
+                            <select
+                                value={item.op || '+'}
+                                onChange={(event) =>
+                                    updateItemOp(index, event.target.value as FormulaOp)
+                                }
+                                className="rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
+                            >
+                                {FORMULA_OPS.map((op) => (
+                                    <option key={op} value={op}>
+                                        {formatFormulaOp(op)}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : null}
+                    </div>
+                ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    onClick={() => addItem({ kind: 'parameter', field: '' })}
+                    className="rounded-md border border-[#FDE68A] bg-white px-2.5 py-1 text-xs font-medium text-[#B45309]"
+                >
+                    + Parameter
+                </button>
+                <button
+                    type="button"
+                    onClick={() => addItem({ kind: 'number', value: 0 })}
+                    className="rounded-md border border-[#FDE68A] bg-white px-2.5 py-1 text-xs font-medium text-[#B45309]"
+                >
+                    + Number
+                </button>
+                <button
+                    type="button"
+                    onClick={() => addItem(emptyFormulaGroup())}
+                    className="rounded-md border border-[#FDE68A] bg-white px-2.5 py-1 text-xs font-medium text-[#B45309]"
+                >
+                    + Group
+                </button>
+                <button
+                    type="button"
+                    onClick={removeLast}
+                    className="rounded-md border border-[#FECACA] bg-[#FEF2F2] px-2.5 py-1 text-xs font-medium text-[#B91C1C]"
+                >
+                    − Remove last
+                </button>
+            </div>
+            <p className="text-xs font-medium text-[#92400E]">)</p>
+        </div>
+    );
+}
+
+function FormulaExpressionModal({
+    isOpen,
+    draft,
+    fieldOptions,
+    error,
+    onClose,
+    onSave,
+    onChangeDraft,
+}: {
+    isOpen: boolean;
+    draft: FormulaGroup;
+    fieldOptions: RuleFieldOption[];
+    error: string | null;
+    onClose: () => void;
+    onSave: () => void;
+    onChangeDraft: (next: FormulaGroup) => void;
+}) {
+    return (
+        <FormModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Edit formula"
+            onSubmit={onSave}
+            submitLabel="Save formula"
+            error={error}
+            width="max-w-2xl"
+        >
+            <p className="mb-3 rounded-lg border border-[#FEF3C7] bg-[#FFFBEB] px-3 py-2 text-sm text-[#92400E]">
+                Parameters and numbers in one group become one bracket. Add another group to
+                combine expressions. Nest a group to add more brackets. Multiplication, division,
+                and exponents follow BODMAS.
+            </p>
+            <p className="mb-4 text-sm font-medium text-[#111827]">
+                {formatFormulaExpr(draft, (field) => parameterDisplayName(field, fieldOptions))}
+            </p>
+            <FormulaGroupEditor group={draft} fieldOptions={fieldOptions} onChange={onChangeDraft} />
+        </FormModal>
+    );
 }
 
 function FormulaNodeEditor({
@@ -198,19 +381,34 @@ function FormulaNodeEditor({
     const rule = (Array.isArray(node.rule) ? node.rule : []) as Array<string | number>;
     const constantMode = isConstantFormula(rule);
     const formulaOptions = filterRuleFieldOptions(fieldOptions, 'formula');
+    const [modalOpen, setModalOpen] = useState(false);
+    const [draft, setDraft] = useState<FormulaGroup>(emptyFormulaGroup());
+    const [modalError, setModalError] = useState<string | null>(null);
 
-    const updateToken = (index: number, token: string | number) => {
-        const next = [...rule];
-        next[index] = token;
-        onChange({ ...node, rule: next });
+    const expressionGroup = constantMode ? emptyFormulaGroup() : postfixToGroup(rule);
+    const expressionLabel = formatFormulaExpr(expressionGroup, (field) =>
+        parameterDisplayName(field, formulaOptions),
+    );
+
+    const openModal = (nextRule?: Array<string | number>) => {
+        const tokens = nextRule ?? rule;
+        setDraft(
+            cloneFormulaGroup(
+                isConstantFormula(tokens) ? defaultExpressionGroup(formulaOptions) : postfixToGroup(tokens),
+            ),
+        );
+        setModalError(null);
+        setModalOpen(true);
     };
 
-    const removeToken = (index: number) => {
-        onChange({ ...node, rule: rule.filter((_, i) => i !== index) });
-    };
-
-    const addToken = (token: string | number) => {
-        onChange({ ...node, rule: [...rule, token] });
+    const saveModal = () => {
+        const error = validateFormulaGroup(draft);
+        if (error) {
+            setModalError(error);
+            return;
+        }
+        onChange({ ...node, rule: groupToPostfix(draft) });
+        setModalOpen(false);
     };
 
     return (
@@ -241,9 +439,13 @@ function FormulaNodeEditor({
                     </button>
                     <button
                         type="button"
-                        onClick={() =>
-                            onChange({ ...node, rule: defaultExpressionRule(formulaOptions) })
-                        }
+                        onClick={() => {
+                            const next = constantMode
+                                ? groupToPostfix(defaultExpressionGroup(formulaOptions))
+                                : rule;
+                            if (constantMode) onChange({ ...node, rule: next });
+                            openModal(next);
+                        }}
                         className={`rounded-md px-2.5 py-1 text-xs font-medium ${!constantMode
                                 ? 'bg-[#B45309] text-white'
                                 : 'border border-[#FDE68A] text-[#B45309] hover:bg-[#FEF3C7]'
@@ -267,108 +469,30 @@ function FormulaNodeEditor({
                 />
             ) : (
                 <div className="space-y-2">
-                    {rule.map((token, index) => {
-                        const tokenKey = `formula-token-${index}`;
-                        if (isFormulaOperator(token)) {
-                            return (
-                                <div key={tokenKey} className="flex items-center gap-2">
-                                    <select
-                                        value={String(token)}
-                                        disabled={readOnly}
-                                        onChange={(event) => updateToken(index, event.target.value)}
-                                        className="w-full rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
-                                    >
-                                        {FORMULA_OPERATORS.map((op) => (
-                                            <option key={op} value={op}>
-                                                {op}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {!readOnly ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => removeToken(index)}
-                                            className="rounded p-2 text-red-600 hover:bg-red-50"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
-                                    ) : null}
-                                </div>
-                            );
-                        }
-
-                        if (typeof token === 'number') {
-                            return (
-                                <div key={tokenKey} className="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        value={token}
-                                        disabled={readOnly}
-                                        onChange={(event) =>
-                                            updateToken(index, Number(event.target.value))
-                                        }
-                                        className="w-full rounded-md border border-[#D1D5DB] px-3 py-2 text-sm"
-                                    />
-                                    {!readOnly ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => removeToken(index)}
-                                            className="rounded p-2 text-red-600 hover:bg-red-50"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
-                                    ) : null}
-                                </div>
-                            );
-                        }
-
-                        return (
-                            <div key={tokenKey} className="flex items-center gap-2">
-                                <ParameterFieldSelect
-                                    value={String(token)}
-                                    options={formulaOptions}
-                                    onChange={(next) => updateToken(index, next)}
-                                    disabled={readOnly}
-                                />
-                                {!readOnly ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeToken(index)}
-                                        className="rounded p-2 text-red-600 hover:bg-red-50"
-                                    >
-                                        <TrashIcon className="h-4 w-4" />
-                                    </button>
-                                ) : null}
-                            </div>
-                        );
-                    })}
+                    <p className="rounded-md border border-[#FDE68A] bg-white px-3 py-2 text-sm text-[#111827]">
+                        {expressionLabel}
+                    </p>
                     {!readOnly ? (
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => addToken(formulaOptions[0] ? ruleFieldOptionValue(formulaOptions[0]) : '')}
-                                className="text-xs font-medium text-[#B45309] hover:underline"
-                            >
-                                + Parameter
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => addToken(0)}
-                                className="text-xs font-medium text-[#B45309] hover:underline"
-                            >
-                                + Number
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => addToken('+')}
-                                className="text-xs font-medium text-[#B45309] hover:underline"
-                            >
-                                + Operator
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => openModal()}
+                            className="rounded-md border border-[#FDE68A] bg-white px-3 py-1.5 text-xs font-medium text-[#B45309]"
+                        >
+                            Edit formula
+                        </button>
                     ) : null}
                 </div>
             )}
+
+            <FormulaExpressionModal
+                isOpen={modalOpen}
+                draft={draft}
+                fieldOptions={formulaOptions}
+                error={modalError}
+                onClose={() => setModalOpen(false)}
+                onSave={saveModal}
+                onChangeDraft={setDraft}
+            />
         </div>
     );
 }

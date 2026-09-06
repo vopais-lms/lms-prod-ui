@@ -66,4 +66,13 @@ describe('scoringRuleSerialization', () => {
             { type: 'formula', rule: ['a', 'b', '+'], child_rule: [] },
         ]);
     });
+
+    it('keeps exponent tokens and numeric literals in formula rule', () => {
+        const parsed = parseScoringRules([
+            { type: 'formula', rule: ['10', 2, '**'], child_rule: [] },
+        ]);
+        expect(serializeScoringRules(parsed)).toEqual([
+            { type: 'formula', rule: ['10', 2, '**'], child_rule: [] },
+        ]);
+    });
 });

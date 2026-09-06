@@ -37,6 +37,17 @@ describe('validateScoringRules', () => {
     expect(validateScoringRules(scoringTree, 'scoring')).toBeNull();
   });
 
+  it('accepts a scoring condition with an exponent formula', () => {
+    const tree: ScoringRuleNode[] = [
+      {
+        type: 'conditional',
+        rule: [[{ field: 'age', operator: '>=', value: 21 }]],
+        child_rule: [{ type: 'formula', rule: ['10', 2, '**'], child_rule: [] }],
+      },
+    ];
+    expect(validateScoringRules(tree, 'scoring')).toBeNull();
+  });
+
   it('accepts verification conditional gate without children', () => {
     const gate: ScoringRuleNode[] = [
       {
