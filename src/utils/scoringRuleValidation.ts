@@ -105,12 +105,18 @@ export function validateScoringRules(
 
   const walk = (node: ScoringRuleNode, isRoot: boolean): string | null => {
     if (node.type === 'conditional') {
-      const conditions = normalizeConditionalRule(node.rule);
-      if (!isRoot && conditions.length === 0) {
-        return 'Conditional branches must include at least one condition';
-      }
-      if (node.child_rule.length === 0) {
+      const conditions = configuredConditionGroups(node.rule);
+      if (conditions.length === 0) {
+        if (!isRoot) {
+          return 'Conditional branches must include at least one condition';
+        }
+        if (groupType === 'scoring') {
+          return 'Each condition must include at least one check and a formula';
+        }
         return null;
+      }
+      if (groupType === 'scoring' && !node.child_rule.some((child) => child.type === 'formula')) {
+        return 'Each condition must have a formula to calculate the score';
       }
       for (const child of node.child_rule) {
         const err = walk(child, false);
@@ -141,11 +147,19 @@ export function validateScoringRules(
   return null;
 }
 
-export function createEmptyConditionalNode(): ScoringRuleNode {
+function configuredConditionGroups(rule: ScoringRuleNode['rule']): ConditionDict[][] {
+  return normalizeConditionalRule(rule)
+    .map((group) => group.filter((cond) => String(cond.field ?? '').trim() !== ''))
+    .filter((group) => group.length > 0);
+}
+
+export function createEmptyConditionalNode(
+  groupType: 'verification' | 'scoring' = 'verification',
+): ScoringRuleNode {
   return {
     type: 'conditional',
-    rule: [[{ field: '', operator: '==', value: '' }]],
-    child_rule: [],
+    rule: [],
+    child_rule: groupType === 'scoring' ? [createEmptyFormulaNode()] : [],
   };
 }
 

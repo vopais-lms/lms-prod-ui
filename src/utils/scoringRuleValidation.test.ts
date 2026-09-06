@@ -52,6 +52,35 @@ describe('validateScoringRules', () => {
     expect(validateScoringRules(scoringTree, 'verification')).toMatch(/conditional/i);
   });
 
+  it('rejects scoring condition without a formula', () => {
+    const missingFormula: ScoringRuleNode[] = [
+      {
+        type: 'conditional',
+        rule: [[{ field: 'age', operator: '>=', value: 21 }]],
+        child_rule: [],
+      },
+    ];
+    expect(validateScoringRules(missingFormula, 'scoring')).toMatch(/formula/i);
+  });
+
+  it('rejects nested scoring condition without a formula', () => {
+    const missingNested: ScoringRuleNode[] = [
+      {
+        type: 'conditional',
+        rule: [[{ field: 'age', operator: '>=', value: 21 }]],
+        child_rule: [
+          { type: 'formula', rule: [10], child_rule: [] },
+          {
+            type: 'conditional',
+            rule: [[{ field: 'income', operator: '>', value: 0 }]],
+            child_rule: [],
+          },
+        ],
+      },
+    ];
+    expect(validateScoringRules(missingNested, 'scoring')).toMatch(/formula/i);
+  });
+
   it('rejects depth over 10', () => {
     let node: ScoringRuleNode = {
       type: 'formula',

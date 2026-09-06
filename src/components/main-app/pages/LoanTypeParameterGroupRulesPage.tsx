@@ -122,7 +122,7 @@ export function LoanTypeParameterGroupRulesPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || Boolean(hasChildren)}
+            disabled={saving || Boolean(hasChildren) || Boolean(validationError)}
             className="flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1D4ED8] disabled:opacity-50"
           >
             {saving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : null}
