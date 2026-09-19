@@ -125,6 +125,7 @@ const customerDocumentList = (customerEid: string, request: Request) => {
 const loginResponse = {
   access_token: 'mock-access-token',
   refresh_token: 'mock-refresh-token',
+  profile_api_label: 'admin',
 }
 
 export const handlers = [

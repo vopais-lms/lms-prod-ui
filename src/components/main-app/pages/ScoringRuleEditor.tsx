@@ -33,6 +33,7 @@ import {
     type ConditionDict,
     type ScoringRuleNode,
 } from '../../../utils/scoringRuleValidation';
+import { canUseFormulaExpression } from '../../../utils/authSession';
 
 type ScoringRuleEditorProps = {
     nodes: ScoringRuleNode[];
@@ -40,6 +41,7 @@ type ScoringRuleEditorProps = {
     fieldOptions: RuleFieldOption[];
     onChange: (nodes: ScoringRuleNode[]) => void;
     readOnly?: boolean;
+    canUseExpression?: boolean;
 };
 
 type ScoringRuleNodeEditorProps = {
@@ -50,6 +52,7 @@ type ScoringRuleNodeEditorProps = {
     onChange: (node: ScoringRuleNode) => void;
     onRemove?: () => void;
     readOnly?: boolean;
+    canUseExpression?: boolean;
 };
 
 const OPERATORS = ['==', '!=', '>', '<', '>=', '<='] as const;
@@ -425,12 +428,14 @@ function FormulaNodeEditor({
     onChange,
     onRemove,
     readOnly = false,
+    canUseExpression = false,
 }: {
     node: ScoringRuleNode;
     fieldOptions: RuleFieldOption[];
     onChange: (node: ScoringRuleNode) => void;
     onRemove?: () => void;
     readOnly?: boolean;
+    canUseExpression?: boolean;
 }) {
     const rule = (Array.isArray(node.rule) ? node.rule : []) as Array<string | number>;
     const constantMode = isConstantFormula(rule);
@@ -476,10 +481,10 @@ function FormulaNodeEditor({
                 ) : null}
             </div>
             <p className="text-xs text-[#92400E]">
-                Use a fixed score or a formula.
+                {canUseExpression ? 'Use a fixed score or a formula.' : 'Use a fixed score.'}
             </p>
 
-            {!readOnly ? (
+            {!readOnly && canUseExpression ? (
                 <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
@@ -526,7 +531,7 @@ function FormulaNodeEditor({
                     <p className="rounded-md border border-[#FDE68A] bg-white px-3 py-2 text-sm text-[#111827]">
                         {expressionLabel}
                     </p>
-                    {!readOnly ? (
+                    {!readOnly && canUseExpression ? (
                         <button
                             type="button"
                             onClick={() => openModal()}
@@ -535,18 +540,29 @@ function FormulaNodeEditor({
                             Edit formula
                         </button>
                     ) : null}
+                    {!readOnly && !canUseExpression ? (
+                        <button
+                            type="button"
+                            onClick={() => onChange({ ...node, rule: [0] })}
+                            className="rounded-md border border-[#FDE68A] bg-white px-3 py-1.5 text-xs font-medium text-[#B45309]"
+                        >
+                            Fixed score
+                        </button>
+                    ) : null}
                 </div>
             )}
 
-            <FormulaExpressionModal
-                isOpen={modalOpen}
-                draft={draft}
-                fieldOptions={formulaOptions}
-                error={modalError}
-                onClose={() => setModalOpen(false)}
-                onSave={saveModal}
-                onChangeDraft={setDraft}
-            />
+            {canUseExpression ? (
+                <FormulaExpressionModal
+                    isOpen={modalOpen}
+                    draft={draft}
+                    fieldOptions={formulaOptions}
+                    error={modalError}
+                    onClose={() => setModalOpen(false)}
+                    onSave={saveModal}
+                    onChangeDraft={setDraft}
+                />
+            ) : null}
         </div>
     );
 }
@@ -656,6 +672,7 @@ function ScoringRuleNodeEditor({
     onChange,
     onRemove,
     readOnly = false,
+    canUseExpression = false,
 }: ScoringRuleNodeEditorProps) {
     const atMaxDepth = depth >= MAX_CONDITIONAL_DEPTH;
     const conditionOptions = filterRuleFieldOptions(fieldOptions, 'condition');
@@ -826,6 +843,7 @@ function ScoringRuleNodeEditor({
                                         depth={depth + 1}
                                         onChange={(next) => updateChild(index, next)}
                                         readOnly={readOnly}
+                                        canUseExpression={canUseExpression}
                                     />
                                 ))}
                                 {!readOnly && formulaChildren.length === 0 ? (
@@ -850,6 +868,7 @@ function ScoringRuleNodeEditor({
                                 onChange={(next) => updateChild(index, next)}
                                 onRemove={() => removeChild(index)}
                                 readOnly={readOnly}
+                                canUseExpression={canUseExpression}
                             />
                         ))}
 
@@ -886,6 +905,7 @@ function ScoringRuleNodeEditor({
             onChange={onChange}
             onRemove={onRemove}
             readOnly={readOnly}
+            canUseExpression={canUseExpression}
         />
     );
 }
@@ -896,6 +916,7 @@ export function ScoringRuleEditor({
     fieldOptions,
     onChange,
     readOnly = false,
+    canUseExpression = canUseFormulaExpression(),
 }: ScoringRuleEditorProps) {
     const updateNode = (index: number, node: ScoringRuleNode) => {
         const next = [...nodes];
@@ -927,6 +948,7 @@ export function ScoringRuleEditor({
                     onChange={(next) => updateNode(index, next)}
                     onRemove={() => removeNode(index)}
                     readOnly={readOnly}
+                    canUseExpression={canUseExpression}
                 />
             ))}
 
@@ -940,7 +962,7 @@ export function ScoringRuleEditor({
                         <PlusIcon className="h-4 w-4" />
                         Add Condition
                     </button>
-                    {groupType === 'scoring' ? (
+                    {groupType === 'scoring' && canUseExpression ? (
                         <button
                             type="button"
                             onClick={() => addRootNode('formula')}

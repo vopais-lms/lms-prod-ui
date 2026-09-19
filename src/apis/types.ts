@@ -102,6 +102,7 @@ export interface Permission {
 export interface LoginResponse {
     access_token: string;
     refresh_token: string;
+    profile_api_label?: string;
 }
 
 export interface CustomerLoginResponse {

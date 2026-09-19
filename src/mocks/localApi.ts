@@ -133,11 +133,11 @@ export const handleMockApiRequest = async <T>(
 
   await scenarioGate(method)
 
-  if (method === 'POST' && path === '/auth/login') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token' } as T
-  if (method === 'POST' && path === '/auth/refresh_token') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token' } as T
+  if (method === 'POST' && path === '/auth/login') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', profile_api_label: 'admin' } as T
+  if (method === 'POST' && path === '/auth/refresh_token') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', profile_api_label: 'admin' } as T
   if (method === 'POST' && path === '/auth/reset_password') return {} as T
   if (method === 'POST' && path === '/auth/customer_login') return { message: 'If the number is registered, an OTP has been sent.' } as T
-  if (method === 'POST' && path === '/auth/authenticate_customer_otp') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token' } as T
+  if (method === 'POST' && path === '/auth/authenticate_customer_otp') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', profile_api_label: 'customer' } as T
   if (method === 'GET' && path === '/auth/menu_items') return { data: menuItems } as T
 
   if (method === 'POST' && path === '/tenant_details/register') {
