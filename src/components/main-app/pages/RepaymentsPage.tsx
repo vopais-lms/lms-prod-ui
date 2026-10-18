@@ -13,7 +13,7 @@ import { repaymentScheduleTableColumns } from '../shared/repaymentScheduleColumn
 const LOAN_APPLICATION_STATUS_LABELS: Record<string, string> = {
   inactive: 'Inactive',
   initiated: 'Initiated',
-  submitted: 'Submitted',
+  submitted: 'In Progress',
   approval_pending: 'Approval Pending',
   approved: 'Approved',
   rejected: 'Rejected',

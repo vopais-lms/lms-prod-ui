@@ -16,6 +16,7 @@ import { DesignationsPage } from './main-app/pages/DesignationsPage';
 import { BranchesPage } from './main-app/pages/BranchesPage';
 import { ProfilesPage } from './main-app/pages/ProfilesPage';
 import { CustomersPage } from './main-app/pages/CustomersPage';
+import { CustomerAccountPage } from './main-app/pages/CustomerAccountPage';
 import { CustomerKycPage } from './main-app/pages/CustomerKycPage';
 import { LoanTypesPage } from './main-app/pages/LoanTypesPage';
 import { LoanTypesHubPage } from './main-app/pages/LoanTypesHubPage';
@@ -34,7 +35,7 @@ import { LoanCollectionCreatePage } from './main-app/pages/LoanCollectionCreateP
 import { LoanCollectionDetailPage } from './main-app/pages/LoanCollectionDetailPage';
 import { RepaymentsPage } from './main-app/pages/RepaymentsPage';
 import { ReportsAnalyticsPage } from './main-app/pages/ReportsAnalyticsPage';
-import { clearSession, fetchAndStoreMenuItems, getDefaultAppRoute, getStoredDisplayName, getStoredMenuItems, isCustomerPendingActivation, isFirstTimeLogin } from '../utils/authSession';
+import { clearSession, fetchAndStoreMenuItems, getPostLoginRoute, getStoredDisplayName, getStoredMenuItems, getStoredProfileApiLabel, isCustomerPendingActivation, isCustomerProfile, isFirstTimeLogin } from '../utils/authSession';
 import type { MenuItem } from '../apis/types';
 
 export function MainAppShell() {
@@ -133,7 +134,7 @@ export function MainAppShell() {
 
                 <main className="p-8">
                     <Routes>
-                        <Route index element={<Navigate to={getDefaultAppRoute(menuItems).replace(/^\//, '')} replace />} />
+                        <Route index element={<Navigate to={getPostLoginRoute(menuItems, getStoredProfileApiLabel()).replace(/^\//, '')} replace />} />
                         {/* Existing pages */}
                         <Route path="executive" element={<ExecutiveCommand />} />
                         <Route path="workqueue" element={<LoanOfficerWorkQueue />} />
@@ -147,7 +148,8 @@ export function MainAppShell() {
                         <Route path="branches" element={<BranchesPage />} />
                         <Route path="branch" element={<BranchesPage />} />
                         <Route path="profiles" element={<ProfilesPage />} />
-                        <Route path="customers" element={<CustomersPage />} />
+                        <Route path="customers" element={isCustomerProfile() ? <Navigate to="/app/customer-details" replace /> : <CustomersPage />} />
+                        <Route path="customer-details" element={<CustomerAccountPage />} />
                         <Route path="loan-types" element={<LoanTypesHubPage />}>
                             <Route index element={<LoanTypesPage />} />
                             <Route path="underwriting" element={<UnderwritingParametersPage />} />
@@ -162,7 +164,16 @@ export function MainAppShell() {
                             element={<LoanTypeParameterGroupRulesPage />}
                         />
                         <Route path="loans" element={<LoanApplicationsPage />} />
-                        <Route path="loans/new" element={<LoanApplicationCreatePage />} />
+                        <Route
+                            path="loans/new"
+                            element={
+                                isCustomerProfile() ? (
+                                    <Navigate to="/app/loans" replace />
+                                ) : (
+                                    <LoanApplicationCreatePage />
+                                )
+                            }
+                        />
                         <Route
                             path="loans/:eid/moratorium-requests/new"
                             element={<MoratoriumRequestCreatePage />}

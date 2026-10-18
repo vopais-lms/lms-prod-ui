@@ -20,9 +20,11 @@ import { customerDocumentsApi, customerVerificationsApi } from '../../../apis/cu
 import { governmentDocumentsApi } from '../../../apis/governmentDocuments';
 import { hasUploadedCustomerDocumentFile } from '../../../apis/kycMappers';
 import type { Customer, CustomerDocument, GovernmentDocument } from '../../../apis/types';
+import { isCustomerProfile } from '../../../utils/authSession';
 
 export function CustomerKycPage() {
   const navigate = useNavigate();
+  const customerCanVerify = !isCustomerProfile();
   const { customerEid } = useParams<{ customerEid: string }>();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [documents, setDocuments] = useState<CustomerDocument[]>([]);
@@ -296,7 +298,9 @@ export function CustomerKycPage() {
                 <tr className="border-b border-[#E5E7EB] text-left">
                   <th className="py-3 pr-4 font-medium text-[#6B7280]">Document Type</th>
                   <th className="py-3 pr-4 font-medium text-[#6B7280]">Status</th>
-                  <th className="py-3 font-medium text-[#6B7280]">Customer Record</th>
+                  {customerCanVerify && (
+                    <th className="py-3 font-medium text-[#6B7280]">Customer Record</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -309,11 +313,13 @@ export function CustomerKycPage() {
                       <td className="py-3 pr-4">
                         <StatusBadge status={catalogStatus.status} label={catalogStatus.label} />
                       </td>
-                      <td className="py-3 text-[#6B7280]">
-                        {customerDoc
-                          ? `Mapping #${customerDoc.user_government_document_value_mapping_id}`
-                          : 'Not created yet'}
-                      </td>
+                      {customerCanVerify && (
+                        <td className="py-3 text-[#6B7280]">
+                          {customerDoc
+                            ? `Mapping #${customerDoc.user_government_document_value_mapping_id}`
+                            : 'Not created yet'}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -490,7 +496,7 @@ export function CustomerKycPage() {
                     {/* Right: Manual Entry */}
                     <div className="space-y-3">
                       <h4 className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
-                        Manual Entry / Verification
+                        {customerCanVerify ? 'Manual Entry / Verification' : 'Manual Entry'}
                       </h4>
 
                       {/* Manual Value Input */}
@@ -545,8 +551,7 @@ export function CustomerKycPage() {
                         )}
                       </div>
 
-                      {/* Verification */}
-                      {!doc.is_verified && (
+                      {customerCanVerify && !doc.is_verified && (
                         <div>
                           <label className="block text-xs font-medium text-[#374151] mb-1.5">
                             Verification Note (optional)

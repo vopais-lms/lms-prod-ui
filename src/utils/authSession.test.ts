@@ -4,9 +4,11 @@ import {
     clearSession,
     customerAuthHeaders,
     formatLoginDisplayName,
+    getPostLoginRoute,
     getStoredCustomerEid,
     getStoredDisplayName,
     isCustomerPendingActivation,
+    isCustomerProfile,
     markCustomerActivated,
     getStoredProfileApiLabel,
     isFirstTimeLogin,
@@ -124,6 +126,36 @@ describe('authSession profile_api_label', () => {
         clearSession();
         expect(getStoredProfileApiLabel()).toBeNull();
         expect(canUseFormulaExpression()).toBe(false);
+    });
+});
+
+describe('customer post-login route', () => {
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    it('sends a customer profile to their details page', () => {
+        storeTokens({
+            access_token: 'a',
+            refresh_token: 'r',
+            profile_api_label: 'customer',
+            is_active: true,
+            customer_eid: '5176DA0EF087',
+        });
+        expect(isCustomerProfile()).toBe(true);
+        expect(getPostLoginRoute([{ id: 1, label: 'Customers', link: '/customers', icon: '' }])).toBe(
+            '/customer-details',
+        );
+    });
+
+    it('keeps other profiles on the first menu item', () => {
+        expect(isCustomerProfile('admin')).toBe(false);
+        expect(
+            getPostLoginRoute(
+                [{ id: 1, label: 'Customers', link: '/customers', icon: '' }],
+                'admin',
+            ),
+        ).toBe('/customers');
     });
 });
 

@@ -9,6 +9,7 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { loanApplicationsApi } from '../../../apis/loanApplications';
 import { loanTypesApi } from '../../../apis/loanTypes';
 import type { LoanApplication, LoanApplicationStatus, LoanType } from '../../../apis/types';
+import { isCustomerProfile } from '../../../utils/authSession';
 
 type ChangeStatusTarget = Extract<
   LoanApplicationStatus,
@@ -18,7 +19,7 @@ type ChangeStatusTarget = Extract<
 const LOAN_APPLICATION_STATUS_LABELS: Record<LoanApplicationStatus, string> = {
   inactive: 'Inactive',
   initiated: 'Initiated',
-  submitted: 'Submitted',
+  submitted: 'In Progress',
   approval_pending: 'Approval Pending',
   approved: 'Approved',
   rejected: 'Rejected',
@@ -42,7 +43,7 @@ function loanApplicationStatusBadge(status: LoanApplicationStatus) {
     case 'initiated':
       return <StatusBadge status="pending" label="Initiated" />;
     case 'submitted':
-      return <StatusBadge status="pending" label="Submitted" />;
+      return <StatusBadge status="pending" label="In Progress" />;
     case 'approval_pending':
       return <StatusBadge status="pending" label="Approval Pending" />;
     case 'approved':
@@ -75,6 +76,7 @@ export function LoanApplicationsPage() {
   const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
   const [disbursementLoadingEid, setDisbursementLoadingEid] = useState<string | null>(null);
   const [disbursementError, setDisbursementError] = useState<string | null>(null);
+  const customerView = isCustomerProfile();
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
@@ -255,20 +257,22 @@ export function LoanApplicationsPage() {
         );
       },
     },
-  ];
+  ].filter((column) => !(customerView && column.key === 'actions'));
 
   return (
     <PageShell
       title="Loan Applications"
-      subtitle="Create and manage loan applications"
+      subtitle={customerView ? 'Your loan applications' : 'Create and manage loan applications'}
       actions={
-        <button
-          onClick={() => navigate('/app/loans/new')}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-medium rounded-lg hover:bg-[#1D4ED8] transition-colors"
-        >
-          <PlusIcon className="w-4 h-4" />
-          New Application
-        </button>
+        customerView ? null : (
+          <button
+            onClick={() => navigate('/app/loans/new')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-medium rounded-lg hover:bg-[#1D4ED8] transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New Application
+          </button>
+        )
       }
     >
       {disbursementError && (

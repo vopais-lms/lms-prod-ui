@@ -6,6 +6,8 @@ import { PageShell } from '../shared/PageShell';
 import { FormField, FormInput, FormSelect } from '../shared/FormModal';
 import { StatusBadge } from '../shared/StatusBadge';
 import { LmsFormioForm } from '../shared/LmsFormioForm';
+import { LmsFormioReadOnlyForm } from '../shared/LmsFormioReadOnlyForm';
+import { isCustomerProfile } from '../../../utils/authSession';
 import { LoanApplicationSubmittedSections } from './LoanApplicationSubmittedSections';
 import { loanApplicationsApi } from '../../../apis/loanApplications';
 import type { LoanApplicationDetail, LoanApplicationStatus } from '../../../apis/types';
@@ -26,7 +28,7 @@ function loanApplicationStatusBadge(status: LoanApplicationStatus) {
     case 'initiated':
       return <StatusBadge status="pending" label="Initiated" />;
     case 'submitted':
-      return <StatusBadge status="pending" label="Submitted" />;
+      return <StatusBadge status="pending" label="In Progress" />;
     case 'approval_pending':
       return <StatusBadge status="pending" label="Approval Pending" />;
     case 'approved':
@@ -90,7 +92,6 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
   const steps = [
     { num: 1, label: 'Core Terms' },
     { num: 2, label: 'Additional Details' },
-    { num: 3, label: 'Application Form' },
   ];
 
   return (
@@ -164,9 +165,7 @@ export function LoanApplicationDetailPage() {
 
   const currentStep = useMemo(() => {
     if (!application) return 1;
-    if (application.status === 'inactive') return 2;
-    if (application.status === 'initiated') return 3;
-    return 3;
+    return 2;
   }, [application]);
 
   const uploadContext = useMemo(
@@ -239,23 +238,33 @@ export function LoanApplicationDetailPage() {
   const handleSubmitForm = useCallback(
     async (data: Record<string, unknown>) => {
       if (!eid) return;
+      const savingInProgress = application?.status === 'submitted';
       setFormSubmitting(true);
       setActionError(null);
       setActionSuccess(null);
       try {
         await loanApplicationsApi.saveForm(eid, data);
+        if (savingInProgress) {
+          setFormValues(data);
+          setActionSuccess('Application form saved.');
+          await loadApplication();
+          return;
+        }
         await loanApplicationsApi.submit(eid, data);
         setFormValues(data);
         setActionSuccess('Application submitted successfully.');
         await loadApplication();
       } catch (err: any) {
-        setActionError(err.message || 'Failed to submit application');
+        setActionError(
+          err.message ||
+            (savingInProgress ? 'Failed to save application form' : 'Failed to submit application'),
+        );
         throw err;
       } finally {
         setFormSubmitting(false);
       }
     },
-    [eid, loadApplication],
+    [eid, application?.status, loadApplication],
   );
 
   const formHandlers = useMemo(
@@ -294,10 +303,15 @@ export function LoanApplicationDetailPage() {
     );
   }
 
-  const canEditTerms = application.status === 'inactive';
+  const customerView = isCustomerProfile();
+  const canEditTerms = !customerView && application.status === 'inactive';
   const canFillForm = application.status === 'initiated';
+  const canEditApplicationForm =
+    application.status === 'initiated' || application.status === 'submitted';
   const canStartDisbursement =
-    application.status === 'approved' && application.is_single_disbursement !== false;
+    !customerView &&
+    application.status === 'approved' &&
+    application.is_single_disbursement !== false;
   const isSubmitted = !['inactive', 'initiated'].includes(application.status);
 
   return (
@@ -328,7 +342,7 @@ export function LoanApplicationDetailPage() {
         </div>
       }
     >
-      {!isSubmitted && <StepIndicator currentStep={currentStep} />}
+      {!customerView && !isSubmitted && <StepIndicator currentStep={currentStep} />}
 
       {actionError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -341,13 +355,16 @@ export function LoanApplicationDetailPage() {
         </p>
       )}
 
-      {canEditTerms && (
+      {!customerView && (canEditTerms || canFillForm) && (
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-5">
           <h2 className="text-lg font-semibold text-[#111827]">Step 2 — Additional Loan Details</h2>
           <p className="text-sm text-[#6B7280]">
-            Review and update loan terms before opening the application form.
+            {canFillForm
+              ? 'Loan terms are locked. Complete the application form at the end of this section.'
+              : 'Review and update loan terms before opening the application form.'}
           </p>
 
+          <fieldset disabled={!canEditTerms} className="space-y-5 border-0 p-0 m-0 min-w-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Principal Amount" required>
               <FormInput
@@ -501,7 +518,9 @@ export function LoanApplicationDetailPage() {
               options={[...LOAN_SINGLE_DISBURSEMENT_OPTIONS]}
             />
           </FormField>
+          </fieldset>
 
+          {canEditTerms && (
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={handleSaveTerms}
@@ -518,14 +537,64 @@ export function LoanApplicationDetailPage() {
               {initiating ? 'Starting…' : 'Proceed to Application Form'}
             </button>
           </div>
+          )}
+
+          {canFillForm && uploadContext && (
+            <div className="border-t border-[#E5E7EB] pt-5 space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold text-[#374151]">Application form</h3>
+                <p className="text-sm text-[#6B7280] mt-1">
+                  Fill in the loan application form. Files upload immediately when selected.
+                </p>
+              </div>
+              {application.form ? (
+                <LmsFormioForm
+                  form={application.form}
+                  uploadContext={uploadContext}
+                  submission={formValues}
+                  handlers={formHandlers}
+                  onChange={setFormValues}
+                  onError={(err) => {
+                    console.error('Form.io validation error', err);
+                    setActionError('Please fix form validation errors before submitting.');
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  No application form is configured for this loan type.
+                </p>
+              )}
+              {formSubmitting && (
+                <p className="text-sm text-[#6B7280]">Submitting application…</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {canFillForm && uploadContext && (
+      {customerView && !canEditApplicationForm && (
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-5">
-          <h2 className="text-lg font-semibold text-[#111827]">Step 3 — Application Form</h2>
+          <h2 className="text-lg font-semibold text-[#111827]">Application form</h2>
+          {application.form ? (
+            <LmsFormioReadOnlyForm
+              form={application.form}
+              submission={(application.form_values as Record<string, unknown>) || {}}
+            />
+          ) : (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              No application form is configured for this loan type.
+            </p>
+          )}
+        </div>
+      )}
+
+      {customerView && canEditApplicationForm && uploadContext && (
+        <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-5">
+          <h2 className="text-lg font-semibold text-[#111827]">Application form</h2>
           <p className="text-sm text-[#6B7280]">
-            Fill in the loan application form. Files upload immediately when selected.
+            {application.status === 'submitted'
+              ? 'Update the application form. Saving keeps this application In Progress. The loan officer changes the status.'
+              : 'Fill in the loan application form. Files upload immediately when selected.'}
           </p>
 
           {application.form ? (
@@ -547,13 +616,48 @@ export function LoanApplicationDetailPage() {
           )}
 
           {formSubmitting && (
-            <p className="text-sm text-[#6B7280]">Submitting application…</p>
+            <p className="text-sm text-[#6B7280]">
+              {application.status === 'submitted' ? 'Saving application form…' : 'Submitting application…'}
+            </p>
           )}
         </div>
       )}
 
-      {isSubmitted && (
-        <LoanApplicationSubmittedSections eid={eid!} application={application} onApplicationReload={loadApplication} />
+      {!customerView && isSubmitted && uploadContext && (
+        <LoanApplicationSubmittedSections
+          eid={eid!}
+          application={application}
+          onApplicationReload={loadApplication}
+          applicationFormEditor={
+            application.status === 'submitted' ? (
+              <div className="space-y-5">
+                <p className="text-sm text-[#6B7280]">
+                  Update the application form. The status stays In Progress until you change it from the loan list.
+                </p>
+                {application.form ? (
+                  <LmsFormioForm
+                    form={application.form}
+                    uploadContext={uploadContext}
+                    submission={formValues}
+                    handlers={formHandlers}
+                    onChange={setFormValues}
+                    onError={(err) => {
+                      console.error('Form.io validation error', err);
+                      setActionError('Please fix form validation errors before saving.');
+                    }}
+                  />
+                ) : (
+                  <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No application form is configured for this loan type.
+                  </p>
+                )}
+                {formSubmitting && (
+                  <p className="text-sm text-[#6B7280]">Saving application form…</p>
+                )}
+              </div>
+            ) : undefined
+          }
+        />
       )}
     </PageShell>
   );

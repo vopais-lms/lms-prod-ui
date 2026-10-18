@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { loanApplicationsApi } from '../../../apis/loanApplications';
 import type {
   DisbursementRequestListItem,
@@ -41,6 +41,7 @@ type LoanApplicationSubmittedSectionsProps = {
   eid: string;
   application: LoanApplicationDetail;
   onApplicationReload?: () => Promise<void>;
+  applicationFormEditor?: ReactNode;
 };
 
 function basenameFromS3Link(s3Link: string): string {
@@ -79,9 +80,12 @@ export function LoanApplicationSubmittedSections({
   eid,
   application,
   onApplicationReload,
+  applicationFormEditor,
 }: LoanApplicationSubmittedSectionsProps) {
   const [activeSection, setActiveSection] =
-    useState<LoanApplicationDetailSectionId>('overview');
+    useState<LoanApplicationDetailSectionId>(
+      applicationFormEditor ? 'application-form' : 'overview',
+    );
 
   const fetchedSectionsRef = useRef<Set<LoanApplicationDetailSectionId>>(new Set());
 
@@ -370,6 +374,9 @@ export function LoanApplicationSubmittedSections({
         return <KeyValueGrid groups={standardFieldGroups} />;
 
       case 'application-form':
+        if (applicationFormEditor) {
+          return applicationFormEditor;
+        }
         if (!application.form) {
           return (
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">

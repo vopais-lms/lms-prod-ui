@@ -18,6 +18,8 @@ export const formatLoginDisplayName = (
         .filter((part) => part.length > 0)
         .join(' ');
 export const SUPPORT_PROFILE_API_LABEL = 'support';
+export const CUSTOMER_PROFILE_API_LABEL = 'customer';
+export const CUSTOMER_DETAILS_ROUTE = '/customer-details';
 
 export const storeTokens = (tokens: LoginResponse) => {
     localStorage.setItem('auth_token', tokens.access_token);
@@ -58,6 +60,9 @@ export const getStoredProfileApiLabel = (): string | null =>
 
 export const isSupportProfile = (apiLabel: string | null | undefined): boolean =>
     (apiLabel ?? '').toLowerCase() === SUPPORT_PROFILE_API_LABEL;
+
+export const isCustomerProfile = (apiLabel?: string | null): boolean =>
+    (apiLabel ?? getStoredProfileApiLabel() ?? '').toLowerCase() === CUSTOMER_PROFILE_API_LABEL;
 
 export const canUseFormulaExpression = (): boolean =>
     isSupportProfile(getStoredProfileApiLabel());
@@ -114,6 +119,14 @@ export const completeLogin = async (tokens: LoginResponse): Promise<MenuItem[]> 
 export const getDefaultAppRoute = (items: MenuItem[]): string => {
     if (items.length === 0) return '/workqueue';
     return mapMenuLinkToRoute(items[0].link);
+};
+
+export const getPostLoginRoute = (
+    items: MenuItem[],
+    profileApiLabel?: string | null,
+): string => {
+    if (isCustomerProfile(profileApiLabel)) return CUSTOMER_DETAILS_ROUTE;
+    return getDefaultAppRoute(items);
 };
 
 export const customerAuthHeaders = (

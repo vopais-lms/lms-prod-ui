@@ -5,7 +5,8 @@ import { customersApi } from '../apis/customers';
 import { ApiError } from '../utils/apiClient';
 import {
     fetchAndStoreMenuItems,
-    getDefaultAppRoute,
+    getPostLoginRoute,
+    getStoredProfileApiLabel,
     getStoredCustomerEid,
     isCustomerPendingActivation,
     markCustomerActivated,
@@ -54,7 +55,9 @@ export function ActivateCustomerPage() {
             );
             markCustomerActivated();
             const menuItems = await fetchAndStoreMenuItems();
-            navigate(`/app${getDefaultAppRoute(menuItems)}`, { replace: true });
+            navigate(`/app${getPostLoginRoute(menuItems, getStoredProfileApiLabel())}`, {
+                replace: true,
+            });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Verification failed';
             setError(message);

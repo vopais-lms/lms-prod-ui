@@ -17,6 +17,11 @@ import {
   LOAN_TIME_UNIT_OPTIONS,
 } from '../../../constants/loanApplicationFields';
 import type { Customer, LoanType } from '../../../apis/types';
+import {
+  getStoredCustomerEid,
+  getStoredDisplayName,
+  isCustomerProfile,
+} from '../../../utils/authSession';
 
 const emptyForm = {
   loan_type_id: '',
@@ -43,23 +48,44 @@ export function LoanApplicationCreatePage() {
   const [form, setForm] = useState(emptyForm);
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerLabel, setCustomerLabel] = useState('');
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const loggedInCustomer = isCustomerProfile();
 
   useEffect(() => {
     const loadOptions = async () => {
       setLoadingOptions(true);
       try {
-        const [loanTypesRes, customersRes] = await Promise.all([
-          loanTypesApi.list({ page: 1, per_page: 100 }),
-          customersApi.list({ page: 1, per_page: 100 }),
-        ]);
+        const loanTypesRes = await loanTypesApi.list({ page: 1, per_page: 100 });
         setLoanTypes(loanTypesRes.data.filter((lt) => lt.status));
+
+        if (isCustomerProfile()) {
+          const customerEid = getStoredCustomerEid();
+          if (!customerEid) {
+            setSubmitError('Logged-in customer is not available for this session.');
+            return;
+          }
+          const customer = await customersApi.get(customerEid);
+          const label = customer.email
+            ? `${customer.name} (${customer.email})`
+            : customer.name || getStoredDisplayName() || customerEid;
+          setCustomers([customer]);
+          setCustomerLabel(label);
+          setForm((prev) => ({ ...prev, customer_eid: customer.eid }));
+          return;
+        }
+
+        const customersRes = await customersApi.list({ page: 1, per_page: 100 });
         setCustomers(customersRes.data);
       } catch (err) {
         console.error('Failed to load form options', err);
-        setSubmitError('Failed to load loan types or customers.');
+        setSubmitError(
+          isCustomerProfile()
+            ? 'Failed to load loan types or the logged-in customer.'
+            : 'Failed to load loan types or customers.',
+        );
       } finally {
         setLoadingOptions(false);
       }
@@ -119,7 +145,7 @@ export function LoanApplicationCreatePage() {
     try {
       const created = await loanApplicationsApi.create({
         loan_type_id: Number(form.loan_type_id),
-        customer_eid: form.customer_eid,
+        customer_eid: loggedInCustomer ? getStoredCustomerEid() : form.customer_eid,
         principal_disbursement_amount: principal,
         interest_rate: interestRate,
         emi_schedule: form.emi_schedule,
@@ -177,16 +203,24 @@ export function LoanApplicationCreatePage() {
           </FormField>
 
           <FormField label="Customer" required>
-            <FormSelect
-              value={form.customer_eid}
-              onChange={(v) => setForm((prev) => ({ ...prev, customer_eid: v }))}
-              options={customers.map((c) => ({
-                value: c.eid,
-                label: `${c.name} (${c.email})`,
-              }))}
-              placeholder="Select customer"
-              disabled={loadingOptions}
-            />
+            {loggedInCustomer ? (
+              <FormInput
+                value={customerLabel}
+                onChange={() => {}}
+                disabled
+              />
+            ) : (
+              <FormSelect
+                value={form.customer_eid}
+                onChange={(v) => setForm((prev) => ({ ...prev, customer_eid: v }))}
+                options={customers.map((c) => ({
+                  value: c.eid,
+                  label: `${c.name} (${c.email})`,
+                }))}
+                placeholder="Select customer"
+                disabled={loadingOptions}
+              />
+            )}
           </FormField>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

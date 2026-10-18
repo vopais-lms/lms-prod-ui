@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Building2, Phone, ArrowRight, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../apis/auth';
-import { completeLogin, getDefaultAppRoute, storeTokens } from '../utils/authSession';
+import { completeLogin, getPostLoginRoute, storeTokens } from '../utils/authSession';
 
 export function CustomerLoginPage() {
     const navigate = useNavigate();
@@ -44,7 +44,7 @@ export function CustomerLoginPage() {
                 return;
             }
             const menuItems = await completeLogin(res);
-            navigate(`/app${getDefaultAppRoute(menuItems)}`);
+            navigate(`/app${getPostLoginRoute(menuItems, res.profile_api_label)}`);
         } catch (err: any) {
             setError(err.message || 'Invalid OTP');
         } finally {
