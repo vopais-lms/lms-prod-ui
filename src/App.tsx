@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './components/LoginPage';
 import { CustomerLoginPage } from './components/CustomerLoginPage';
+import { ActivateCustomerPage } from './components/ActivateCustomerPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { NbfcRegisterPage } from './components/NbfcRegisterPage';
 import { MainAppShell } from './components/MainAppShell';
@@ -17,6 +18,7 @@ function App() {
         {/* Public Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/customer-login" element={<CustomerLoginPage />} />
+        <Route path="/activate-customer" element={<ActivateCustomerPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/register" element={<NbfcRegisterPage />} />
         <Route path="/verify-tenant" element={<VerifyTenantPage />} />

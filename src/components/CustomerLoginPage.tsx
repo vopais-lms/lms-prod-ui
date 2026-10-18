@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Building2, Phone, ArrowRight, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../apis/auth';
-import { completeLogin, getDefaultAppRoute } from '../utils/authSession';
+import { completeLogin, getDefaultAppRoute, storeTokens } from '../utils/authSession';
 
 export function CustomerLoginPage() {
     const navigate = useNavigate();
@@ -38,6 +38,11 @@ export function CustomerLoginPage() {
                 otp: otp.trim(),
                 linked_phone_number: phone.trim(),
             });
+            if (res.is_active === false) {
+                storeTokens(res);
+                navigate('/activate-customer', { replace: true });
+                return;
+            }
             const menuItems = await completeLogin(res);
             navigate(`/app${getDefaultAppRoute(menuItems)}`);
         } catch (err: any) {

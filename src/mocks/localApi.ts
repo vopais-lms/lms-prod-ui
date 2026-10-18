@@ -133,7 +133,7 @@ export const handleMockApiRequest = async <T>(
 
   await scenarioGate(method)
 
-  if (method === 'POST' && path === '/auth/login') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', profile_api_label: 'admin' } as T
+  if (method === 'POST' && path === '/auth/login') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', profile_api_label: 'admin', first_time_login: false } as T
   if (method === 'POST' && path === '/auth/refresh_token') return { access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', profile_api_label: 'admin' } as T
   if (method === 'POST' && path === '/auth/reset_password') return {} as T
   if (method === 'POST' && path === '/auth/customer_login') return { message: 'If the number is registered, an OTP has been sent.' } as T

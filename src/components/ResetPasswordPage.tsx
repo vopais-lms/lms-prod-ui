@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { useState } from 'react';
-import { Building2, Eye, EyeOff, Lock, CheckCircle2 } from 'lucide-react';
+import { Building2, Eye, EyeOff, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../apis/auth';
+import { clearSession } from '../utils/authSession';
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -12,7 +13,6 @@ export function ResetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const passwordChecks = {
     length: newPassword.length >= 8,
@@ -33,8 +33,8 @@ export function ResetPasswordPage() {
     setLoading(true);
     try {
       await authApi.resetPassword({ new_password: newPassword });
-      setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
+      clearSession();
+      navigate('/login', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to reset password');
     } finally {
@@ -56,16 +56,6 @@ export function ResetPasswordPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-          {success ? (
-            <div className="text-center space-y-4 py-8">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle2 className="size-8 text-green-600" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">Password Reset Successful</h2>
-              <p className="text-gray-600">Redirecting you to login...</p>
-            </div>
-          ) : (
-            <>
               <div className="mb-6">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
                   <Lock className="size-6 text-blue-600" />
@@ -175,8 +165,6 @@ export function ResetPasswordPage() {
 
                 {error && <p className="text-sm text-red-600 text-center">{error}</p>}
               </form>
-            </>
-          )}
         </div>
       </div>
     </div>

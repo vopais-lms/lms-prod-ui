@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Building2, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../apis/auth';
-import { completeLogin, getDefaultAppRoute } from '../utils/authSession';
+import { completeLogin, getDefaultAppRoute, storeTokens } from '../utils/authSession';
 
 type LoginPageProps = {
   errorMessage?: string;
@@ -25,7 +25,6 @@ export function LoginPage({ errorMessage: externalError }: LoginPageProps) {
 
     try {
       const res = await authApi.login({ username: username.trim(), password });
-      const menuItems = await completeLogin(res);
       if (rememberMe) {
         localStorage.setItem('remember_me', 'true');
         localStorage.setItem('remembered_username', username.trim());
@@ -33,6 +32,12 @@ export function LoginPage({ errorMessage: externalError }: LoginPageProps) {
         localStorage.removeItem('remember_me');
         localStorage.removeItem('remembered_username');
       }
+      if (res.first_time_login) {
+        storeTokens(res);
+        navigate('/reset-password', { replace: true });
+        return;
+      }
+      const menuItems = await completeLogin(res);
       navigate(`/app${getDefaultAppRoute(menuItems)}`);
     } catch (err: any) {
       if (err.status === 403 || err.data?.requires_password_reset) {

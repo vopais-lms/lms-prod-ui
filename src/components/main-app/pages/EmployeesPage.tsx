@@ -245,6 +245,11 @@ export function EmployeesPage() {
         <span className="font-medium">{item.first_name} {item.last_name}</span>
       ),
     },
+    {
+      key: 'username',
+      label: 'Username',
+      render: (item: Employee) => <span>{item.username || '—'}</span>,
+    },
     { key: 'email', label: 'Email', render: (item: Employee) => <span>{maskEmail(item.email)}</span> },
     { key: 'phone_number', label: 'Phone', render: (item: Employee) => <span>{maskPhone(item.phone_number)}</span> },
     {
@@ -431,6 +436,7 @@ export function EmployeesPage() {
             <div className="p-6 space-y-4">
               {[
                 ['Name', `${detailItem.first_name} ${detailItem.last_name}`],
+                ['Username', detailItem.username || '—'],
                 ['Employee ID', detailItem.employee_id],
                 ['Email', maskEmail(detailItem.email)],
                 ['Phone', maskPhone(detailItem.phone_number)],

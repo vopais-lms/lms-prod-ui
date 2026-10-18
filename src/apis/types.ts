@@ -75,6 +75,7 @@ export interface Employee {
     last_name: string;
     email: string;
     phone_number: string;
+    username?: string | null;
 }
 
 export interface AppModule {
@@ -89,6 +90,7 @@ export interface Profile {
     id: number;
     is_internal: boolean;
     name: string;
+    api_label?: string;
     modules?: AppModule[];
 }
 
@@ -103,6 +105,11 @@ export interface LoginResponse {
     access_token: string;
     refresh_token: string;
     profile_api_label?: string;
+    first_time_login?: boolean;
+    first_name?: string;
+    last_name?: string;
+    is_active?: boolean;
+    customer_eid?: string | null;
 }
 
 export interface CustomerLoginResponse {

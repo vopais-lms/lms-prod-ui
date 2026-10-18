@@ -8,6 +8,14 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { profilesApi } from '../../../apis/profiles';
 import { modulesApi } from '../../../apis/modules';
 import type { Profile, AppModule } from '../../../apis/types';
+import { isSupportProfile, getStoredProfileApiLabel } from '../../../utils/authSession';
+
+const PROTECTED_PROFILE_API_LABELS = new Set(['admin', 'support', 'customer', 'employee']);
+
+function isProtectedProfile(profile: Profile) {
+  const label = (profile.api_label ?? profile.name ?? '').toLowerCase().replace(/ /g, '_');
+  return PROTECTED_PROFILE_API_LABELS.has(label);
+}
 
 export function ProfilesPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -27,7 +35,8 @@ export function ProfilesPage() {
   const [selectedModuleIds, setSelectedModuleIds] = useState<Set<number>>(new Set());
   const [modulesLoading, setModulesLoading] = useState(false);
 
-  const [form, setForm] = useState({ name: '', is_internal: true });
+  const canChooseProfileType = isSupportProfile(getStoredProfileApiLabel());
+  const [form, setForm] = useState({ name: '', is_internal: canChooseProfileType });
 
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
@@ -46,7 +55,7 @@ export function ProfilesPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ name: '', is_internal: true });
+    setForm({ name: '', is_internal: canChooseProfileType });
     setSubmitError(null);
     setModalOpen(true);
   };
@@ -62,10 +71,11 @@ export function ProfilesPage() {
     setSubmitLoading(true);
     setSubmitError(null);
     try {
+      const payload = canChooseProfileType ? form : { ...form, is_internal: false };
       if (editItem) {
-        await profilesApi.update(editItem.id, form);
+        await profilesApi.update(editItem.id, payload);
       } else {
-        await profilesApi.create(form);
+        await profilesApi.create(payload);
       }
       setModalOpen(false);
       fetchProfiles();
@@ -132,17 +142,19 @@ export function ProfilesPage() {
   const columns = [
     { key: 'id', label: 'ID', className: 'w-16' },
     { key: 'name', label: 'Profile Name', render: (item: Profile) => <span className="font-medium">{item.name}</span> },
-    {
-      key: 'is_internal',
-      label: 'Type',
-      render: (item: Profile) => (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-          item.is_internal ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
-        }`}>
-          {item.is_internal ? 'Internal' : 'External'}
-        </span>
-      ),
-    },
+    ...(canChooseProfileType
+      ? [{
+          key: 'is_internal',
+          label: 'Type',
+          render: (item: Profile) => (
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+              item.is_internal ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
+            }`}>
+              {item.is_internal ? 'Internal' : 'External'}
+            </span>
+          ),
+        }]
+      : []),
     {
       key: 'modules',
       label: 'Modules',
@@ -169,8 +181,12 @@ export function ProfilesPage() {
             <PencilIcon className="w-4 h-4" />
           </button>
           <button
+            type="button"
+            aria-label={`Delete ${item.name}`}
+            disabled={isProtectedProfile(item)}
+            title={isProtectedProfile(item) ? 'This profile cannot be deleted' : 'Delete profile'}
             onClick={(e) => { e.stopPropagation(); setDeleteConfirm(item); }}
-            className="p-1.5 rounded-lg text-[#6B7280] hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="p-1.5 rounded-lg text-[#6B7280] hover:bg-red-50 hover:text-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#6B7280]"
           >
             <TrashIcon className="w-4 h-4" />
           </button>
@@ -220,28 +236,30 @@ export function ProfilesPage() {
           <FormField label="Profile Name" required>
             <FormInput value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="e.g. Admin, Support, Customer" />
           </FormField>
-          <FormField label="Profile Type">
-            <div className="flex items-center gap-4 mt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={form.is_internal}
-                  onChange={() => setForm({ ...form, is_internal: true })}
-                  className="text-[#2563EB]"
-                />
-                <span className="text-sm text-[#374151]">Internal (Employee)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={!form.is_internal}
-                  onChange={() => setForm({ ...form, is_internal: false })}
-                  className="text-[#2563EB]"
-                />
-                <span className="text-sm text-[#374151]">External (Customer)</span>
-              </label>
-            </div>
-          </FormField>
+          {canChooseProfileType ? (
+            <FormField label="Profile Type">
+              <div className="flex items-center gap-4 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={form.is_internal}
+                    onChange={() => setForm({ ...form, is_internal: true })}
+                    className="text-[#2563EB]"
+                  />
+                  <span className="text-sm text-[#374151]">Internal (Employee)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!form.is_internal}
+                    onChange={() => setForm({ ...form, is_internal: false })}
+                    className="text-[#2563EB]"
+                  />
+                  <span className="text-sm text-[#374151]">External (Customer)</span>
+                </label>
+              </div>
+            </FormField>
+          ) : null}
         </div>
       </FormModal>
 

@@ -3,18 +3,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Menu, User } from 'lucide-react';
 
 interface GlobalHeaderProps {
-  userRole: string;
   userName: string;
-  branch?: string;
   onToggleSidebar: () => void;
   onLogout: () => void;
   sidebarCollapsed?: boolean;
 }
 
 export function GlobalHeader({
-  userRole,
   userName,
-  branch,
   onToggleSidebar,
   onLogout,
   sidebarCollapsed = false,
@@ -77,10 +73,6 @@ export function GlobalHeader({
               </div>
               <div className="text-sm text-left">
                 <p className="font-medium text-[#111827]">{userName}</p>
-                <p className="text-xs text-[#6B7280]">
-                  {userRole}
-                  {branch && ` • ${branch}`}
-                </p>
               </div>
             </button>
 

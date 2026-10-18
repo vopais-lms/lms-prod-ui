@@ -4,6 +4,19 @@ import type { LoginResponse, MenuItem } from '../apis/types';
 
 const MENU_ITEMS_KEY = 'menu_items';
 const PROFILE_API_LABEL_KEY = 'profile_api_label';
+const FIRST_TIME_LOGIN_KEY = 'first_time_login';
+const USER_DISPLAY_NAME_KEY = 'user_display_name';
+const CUSTOMER_EID_KEY = 'customer_eid';
+const CUSTOMER_PENDING_ACTIVATION_KEY = 'customer_pending_activation';
+
+export const formatLoginDisplayName = (
+    firstName?: string | null,
+    lastName?: string | null,
+): string =>
+    [firstName, lastName]
+        .map((part) => (part ?? '').trim())
+        .filter((part) => part.length > 0)
+        .join(' ');
 export const SUPPORT_PROFILE_API_LABEL = 'support';
 
 export const storeTokens = (tokens: LoginResponse) => {
@@ -13,6 +26,27 @@ export const storeTokens = (tokens: LoginResponse) => {
         localStorage.setItem(PROFILE_API_LABEL_KEY, tokens.profile_api_label);
     } else {
         localStorage.removeItem(PROFILE_API_LABEL_KEY);
+    }
+    if (tokens.first_time_login === true) {
+        localStorage.setItem(FIRST_TIME_LOGIN_KEY, 'true');
+    } else if (tokens.first_time_login === false) {
+        localStorage.removeItem(FIRST_TIME_LOGIN_KEY);
+    }
+    if (tokens.first_name !== undefined || tokens.last_name !== undefined) {
+        const displayName = formatLoginDisplayName(tokens.first_name, tokens.last_name);
+        if (displayName) {
+            localStorage.setItem(USER_DISPLAY_NAME_KEY, displayName);
+        } else {
+            localStorage.removeItem(USER_DISPLAY_NAME_KEY);
+        }
+    }
+    if (tokens.is_active === false) {
+        localStorage.setItem(CUSTOMER_PENDING_ACTIVATION_KEY, 'true');
+    } else if (tokens.is_active === true) {
+        localStorage.removeItem(CUSTOMER_PENDING_ACTIVATION_KEY);
+    }
+    if (tokens.customer_eid) {
+        localStorage.setItem(CUSTOMER_EID_KEY, tokens.customer_eid);
     }
 };
 
@@ -28,11 +62,31 @@ export const isSupportProfile = (apiLabel: string | null | undefined): boolean =
 export const canUseFormulaExpression = (): boolean =>
     isSupportProfile(getStoredProfileApiLabel());
 
+export const isFirstTimeLogin = (): boolean =>
+    localStorage.getItem(FIRST_TIME_LOGIN_KEY) === 'true';
+
+export const isCustomerPendingActivation = (): boolean =>
+    localStorage.getItem(CUSTOMER_PENDING_ACTIVATION_KEY) === 'true';
+
+export const getStoredCustomerEid = (): string | null =>
+    localStorage.getItem(CUSTOMER_EID_KEY);
+
+export const markCustomerActivated = () => {
+    localStorage.removeItem(CUSTOMER_PENDING_ACTIVATION_KEY);
+};
+
+export const getStoredDisplayName = (): string =>
+    localStorage.getItem(USER_DISPLAY_NAME_KEY) ?? '';
+
 export const clearSession = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem(MENU_ITEMS_KEY);
     localStorage.removeItem(PROFILE_API_LABEL_KEY);
+    localStorage.removeItem(FIRST_TIME_LOGIN_KEY);
+    localStorage.removeItem(USER_DISPLAY_NAME_KEY);
+    localStorage.removeItem(CUSTOMER_EID_KEY);
+    localStorage.removeItem(CUSTOMER_PENDING_ACTIVATION_KEY);
 };
 
 export const getStoredMenuItems = (): MenuItem[] => {
@@ -62,7 +116,13 @@ export const getDefaultAppRoute = (items: MenuItem[]): string => {
     return mapMenuLinkToRoute(items[0].link);
 };
 
-export const customerAuthHeaders = (): Record<string, string> => {
+export const customerAuthHeaders = (
+    linkedPhoneNumber?: string,
+): Record<string, string> => {
+    const headers: Record<string, string> = {};
     const tenantEid = import.meta.env.VITE_TENANT_EID;
-    return tenantEid ? { 'X-Tenant-Eid': tenantEid } : {};
+    if (tenantEid) headers['X-Tenant-Eid'] = tenantEid;
+    const phone = linkedPhoneNumber?.trim();
+    if (phone) headers['X-Linked-Phone-Number'] = phone;
+    return headers;
 };

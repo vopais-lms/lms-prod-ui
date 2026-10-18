@@ -126,6 +126,7 @@ const loginResponse = {
   access_token: 'mock-access-token',
   refresh_token: 'mock-refresh-token',
   profile_api_label: 'admin',
+  first_time_login: false,
 }
 
 export const handlers = [

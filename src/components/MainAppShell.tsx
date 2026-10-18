@@ -34,7 +34,7 @@ import { LoanCollectionCreatePage } from './main-app/pages/LoanCollectionCreateP
 import { LoanCollectionDetailPage } from './main-app/pages/LoanCollectionDetailPage';
 import { RepaymentsPage } from './main-app/pages/RepaymentsPage';
 import { ReportsAnalyticsPage } from './main-app/pages/ReportsAnalyticsPage';
-import { clearSession, fetchAndStoreMenuItems, getDefaultAppRoute, getStoredMenuItems } from '../utils/authSession';
+import { clearSession, fetchAndStoreMenuItems, getDefaultAppRoute, getStoredDisplayName, getStoredMenuItems, isCustomerPendingActivation, isFirstTimeLogin } from '../utils/authSession';
 import type { MenuItem } from '../apis/types';
 
 export function MainAppShell() {
@@ -55,6 +55,16 @@ export function MainAppShell() {
             return;
         }
 
+        if (isCustomerPendingActivation()) {
+            navigate('/activate-customer', { replace: true });
+            return;
+        }
+
+        if (isFirstTimeLogin()) {
+            navigate('/reset-password', { replace: true });
+            return;
+        }
+
         const loadMenu = async () => {
             const cached = getStoredMenuItems();
             if (cached.length > 0) {
@@ -72,34 +82,6 @@ export function MainAppShell() {
 
         loadMenu();
     }, [navigate]);
-
-    const getUserName = (role: UserRole) => {
-        switch (role) {
-            case 'md':
-                return 'Vikram S.';
-            case 'super_admin':
-                return 'Admin User';
-            case 'branch_manager':
-                return 'Manager User';
-            case 'loan_officer':
-            default:
-                return 'Rajesh K.';
-        }
-    };
-
-    const getUserRoleLabel = (role: UserRole) => {
-        switch (role) {
-            case 'md':
-                return 'MD';
-            case 'super_admin':
-                return 'Super Admin';
-            case 'branch_manager':
-                return 'Branch Manager';
-            case 'loan_officer':
-            default:
-                return 'Loan Officer';
-        }
-    };
 
     const handleNavigate = (route: string) => {
         navigate(`/app${route}`);
@@ -143,9 +125,7 @@ export function MainAppShell() {
                 }}
             >
                 <GlobalHeader
-                    userRole={getUserRoleLabel(userRole)}
-                    userName={getUserName(userRole)}
-                    branch={userRole === 'loan_officer' ? 'Jaipur' : undefined}
+                    userName={getStoredDisplayName()}
                     onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
                     onLogout={handleLogout}
                     sidebarCollapsed={sidebarCollapsed}
