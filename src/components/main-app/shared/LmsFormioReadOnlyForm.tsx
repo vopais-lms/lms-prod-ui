@@ -3,6 +3,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import '@formio/js/dist/formio.full.min.css';
 import { useMemo } from 'react';
 import { Form } from '@formio/react';
+import { presentPanelsAsWizard } from '../../../utils/lmsFormioRuntime';
 
 type LmsFormioReadOnlyFormProps = {
   form: Record<string, unknown>;
@@ -22,11 +23,12 @@ export function LmsFormioReadOnlyForm({
     }),
     [],
   );
+  const wizardForm = useMemo(() => presentPanelsAsWizard(form), [form]);
 
   return (
     <div className={className}>
       <Form
-        form={form}
+        form={wizardForm}
         submission={{ data: submission }}
         options={formOptions}
       />

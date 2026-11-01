@@ -140,7 +140,29 @@ export function prepareRuntimeFormSchema(
     };
   });
 
+  if (formPanelsAreWizardPages(prepared.components)) {
+    prepared.display = 'wizard';
+  }
+
   return prepared;
+}
+
+function formPanelsAreWizardPages(components: FormioComponent[] | undefined): boolean {
+  if (!components?.length) {
+    return false;
+  }
+  const content = components.filter((component) => component.type !== 'button');
+  return content.length > 0 && content.every((component) => component.type === 'panel');
+}
+
+export function presentPanelsAsWizard(
+  form: Record<string, unknown>,
+): Record<string, unknown> {
+  const components = form.components as FormioComponent[] | undefined;
+  if (!formPanelsAreWizardPages(components)) {
+    return form;
+  }
+  return { ...form, display: 'wizard' };
 }
 
 function buildUploadAuthHeaders(token: string | null): Record<string, string> {

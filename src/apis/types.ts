@@ -129,17 +129,28 @@ export type LoanApplicationStatus =
     | 'inactive'
     | 'initiated'
     | 'submitted'
+    | 'loan_application_request_initiated'
+    | 'submitted_to_loan_officer'
     | 'approval_pending'
     | 'approved'
     | 'rejected'
     | 'start_disbursement';
 
+export interface LoanOfficerContact {
+    eid: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    email: string;
+    phone_number: string;
+}
+
 export interface LoanApplicationTerms {
-    principal_disbursement_amount: number;
-    interest_rate: number;
-    emi_schedule: string;
-    time_unit: string;
-    no_of_units: number;
+    requested_loan_amount?: number;
+    principal_disbursement_amount: number | null;
+    interest_rate: number | null;
+    emi_schedule: string | null;
+    time_unit: string | null;
+    no_of_units: number | null;
     amount_disbursed?: number;
     emi_start_date?: string | null;
     pre_emi_type?: string | null;
@@ -161,9 +172,10 @@ export interface LoanApplicationTerms {
 
 export interface LoanApplication extends LoanApplicationTerms {
     eid: string;
-    loan_type_id: number;
+    loan_type_id: number | null;
     customer_eid: string;
-    loan_officer_eid: string;
+    loan_officer_eid: string | null;
+    loan_officer?: LoanOfficerContact | null;
     status: LoanApplicationStatus;
     is_npa: boolean;
     created_at: string;
@@ -180,6 +192,19 @@ export interface LoanApplicationListResponse {
     page: number;
     per_page: number;
     total_records: number;
+}
+
+export type CustomerLoanApplicationCreatePayload = {
+    requested_loan_amount: number;
+    loan_type_id: number;
+};
+
+export interface CustomerLoanApplicationCreateResponse {
+    loan_application_uid: string;
+    eid: string;
+    status: string;
+    requested_loan_amount: number;
+    loan_officer: LoanOfficerContact;
 }
 
 export type LoanApplicationCreatePayload = {
@@ -200,9 +225,12 @@ export type LoanApplicationCreatePayload = {
     penalty_calculation_type?: string;
     penalty_calculation_value?: number;
     penalty_calculation_frequency?: string;
+    otp_redis_key?: string;
 };
 
-export type LoanApplicationTermsUpdatePayload = LoanApplicationTerms;
+export type LoanApplicationTermsUpdatePayload = Partial<LoanApplicationTerms> & {
+    loan_type_id?: number;
+};
 
 export interface PaginatedListResponse<T> {
     data: T[];

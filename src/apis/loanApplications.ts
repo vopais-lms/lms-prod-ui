@@ -2,6 +2,8 @@ import { api } from '../utils/apiClient';
 import type {
   DisbursementRequestListItem,
   LoanApplication,
+  CustomerLoanApplicationCreatePayload,
+  CustomerLoanApplicationCreateResponse,
   LoanApplicationCreatePayload,
   LoanApplicationDetail,
   LoanApplicationListResponse,
@@ -34,6 +36,20 @@ export const loanApplicationsApi = {
   create: (data: LoanApplicationCreatePayload) =>
     api.post<LoanApplication>('/loan_applications/', data),
 
+  customerCreate: (data: CustomerLoanApplicationCreatePayload) =>
+    api.post<CustomerLoanApplicationCreateResponse>('/loan_applications/customer_create', data),
+
+  generateCustomerOtp: (customerEid: string) =>
+    api.post<{ redis_key: string }>('/loan_applications/customer_otp', {
+      customer_eid: customerEid,
+    }),
+
+  verifyCustomerOtp: (data: { customer_eid: string; redis_key: string; otp: string }) =>
+    api.post<void>('/loan_applications/customer_otp/verify', data),
+
+  downloadReport: (params?: { format?: string; status?: string }) =>
+    api.get<string>('/loan_applications/report', { params }),
+
   updateTerms: (loanApplicationEid: string, data: LoanApplicationTermsUpdatePayload) =>
     api.patch<void>(`/loan_applications/${loanApplicationEid}/loan_terms`, data),
 
@@ -45,6 +61,9 @@ export const loanApplicationsApi = {
 
   saveForm: (loanApplicationEid: string, data: Record<string, unknown>) =>
     api.put<void>(`/loan_applications/${loanApplicationEid}/save_form`, { data }),
+
+  submitToLoanOfficer: (loanApplicationEid: string, data: Record<string, unknown>) =>
+    api.post<void>(`/loan_applications/${loanApplicationEid}/submit_to_loan_officer`, { data }),
 
   submit: (loanApplicationEid: string, data: Record<string, unknown>) =>
     api.patch<void>(`/loan_applications/${loanApplicationEid}/submit`, { data }),

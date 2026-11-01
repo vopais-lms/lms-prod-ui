@@ -14,6 +14,8 @@ const LOAN_APPLICATION_STATUS_LABELS: Record<string, string> = {
   inactive: 'Inactive',
   initiated: 'Initiated',
   submitted: 'In Progress',
+  loan_application_request_initiated: 'Loan Application Request Initiated',
+  submitted_to_loan_officer: 'Submitted to Loan Officer',
   approval_pending: 'Approval Pending',
   approved: 'Approved',
   rejected: 'Rejected',
@@ -152,7 +154,11 @@ export function RepaymentsPage() {
       key: 'loan_type_id',
       label: 'Loan Type',
       render: (item: LoanApplication) => (
-        <span>{loanTypes[item.loan_type_id] || `Type #${item.loan_type_id}`}</span>
+        <span>
+          {item.loan_type_id
+            ? loanTypes[item.loan_type_id] || `Type #${item.loan_type_id}`
+            : '—'}
+        </span>
       ),
     },
     {
@@ -166,7 +172,11 @@ export function RepaymentsPage() {
       key: 'principal_disbursement_amount',
       label: 'Principal',
       render: (item: LoanApplication) => (
-        <span>₹{item.principal_disbursement_amount.toLocaleString()}</span>
+        <span>
+          {item.principal_disbursement_amount != null
+            ? `₹${item.principal_disbursement_amount.toLocaleString()}`
+            : '—'}
+        </span>
       ),
     },
     {

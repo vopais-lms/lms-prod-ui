@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowPathIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ArrowPathIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { PageShell } from '../shared/PageShell';
 import { DataTable } from '../shared/DataTable';
@@ -20,6 +20,8 @@ const LOAN_APPLICATION_STATUS_LABELS: Record<LoanApplicationStatus, string> = {
   inactive: 'Inactive',
   initiated: 'Initiated',
   submitted: 'In Progress',
+  loan_application_request_initiated: 'Loan Application Request Initiated',
+  submitted_to_loan_officer: 'Submitted to Loan Officer',
   approval_pending: 'Approval Pending',
   approved: 'Approved',
   rejected: 'Rejected',
@@ -30,6 +32,8 @@ const ALLOWED_STATUS_TRANSITIONS: Record<LoanApplicationStatus, ChangeStatusTarg
   inactive: ['initiated'],
   initiated: ['submitted'],
   submitted: ['approval_pending', 'approved', 'rejected'],
+  loan_application_request_initiated: [],
+  submitted_to_loan_officer: [],
   approval_pending: ['approved', 'rejected'],
   approved: ['rejected'],
   rejected: ['approved', 'approval_pending'],
@@ -44,6 +48,10 @@ function loanApplicationStatusBadge(status: LoanApplicationStatus) {
       return <StatusBadge status="pending" label="Initiated" />;
     case 'submitted':
       return <StatusBadge status="pending" label="In Progress" />;
+    case 'loan_application_request_initiated':
+      return <StatusBadge status="pending" label="Loan Application Request Initiated" />;
+    case 'submitted_to_loan_officer':
+      return <StatusBadge status="pending" label="Submitted to Loan Officer" />;
     case 'approval_pending':
       return <StatusBadge status="pending" label="Approval Pending" />;
     case 'approved':
@@ -76,6 +84,9 @@ export function LoanApplicationsPage() {
   const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
   const [disbursementLoadingEid, setDisbursementLoadingEid] = useState<string | null>(null);
   const [disbursementError, setDisbursementError] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
   const customerView = isCustomerProfile();
 
   const fetchApplications = useCallback(async () => {
@@ -167,6 +178,28 @@ export function LoanApplicationsPage() {
     }
   };
 
+  const handleDownloadReport = async () => {
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const csv = await loanApplicationsApi.downloadReport({
+        format: 'csv',
+        status: reportStatus || undefined,
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'loan_applications.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setReportError(err.message || 'Failed to download the loan application report');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const columns = [
     {
       key: 'eid',
@@ -179,7 +212,11 @@ export function LoanApplicationsPage() {
       key: 'loan_type_id',
       label: 'Loan Type',
       render: (item: LoanApplication) => (
-        <span>{loanTypes[item.loan_type_id] || `Type #${item.loan_type_id}`}</span>
+        <span>
+          {item.loan_type_id
+            ? loanTypes[item.loan_type_id] || `Type #${item.loan_type_id}`
+            : '—'}
+        </span>
       ),
     },
     {
@@ -193,7 +230,13 @@ export function LoanApplicationsPage() {
       key: 'principal_disbursement_amount',
       label: 'Principal',
       render: (item: LoanApplication) => (
-        <span>₹{item.principal_disbursement_amount.toLocaleString()}</span>
+        <span>
+          {item.principal_disbursement_amount != null
+            ? `₹${item.principal_disbursement_amount.toLocaleString()}`
+            : item.requested_loan_amount
+              ? `₹${item.requested_loan_amount.toLocaleString()} requested`
+              : '—'}
+        </span>
       ),
     },
     {
@@ -264,7 +307,33 @@ export function LoanApplicationsPage() {
       title="Loan Applications"
       subtitle={customerView ? 'Your loan applications' : 'Create and manage loan applications'}
       actions={
-        customerView ? null : (
+        <div className="flex flex-wrap items-center gap-2">
+          {!customerView && (
+            <>
+              <select
+                value={reportStatus}
+                onChange={(event) => setReportStatus(event.target.value)}
+                className="px-3 py-2 text-sm border border-[#E5E7EB] rounded-lg bg-white text-[#374151]"
+                aria-label="Report status"
+              >
+                <option value="">All statuses</option>
+                {Object.entries(LOAN_APPLICATION_STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleDownloadReport}
+                disabled={reportLoading}
+                className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] text-[#374151] text-sm font-medium rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
+              >
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                {reportLoading ? 'Downloading…' : 'Download CSV'}
+              </button>
+            </>
+          )}
           <button
             onClick={() => navigate('/app/loans/new')}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white text-sm font-medium rounded-lg hover:bg-[#1D4ED8] transition-colors"
@@ -272,9 +341,14 @@ export function LoanApplicationsPage() {
             <PlusIcon className="w-4 h-4" />
             New Application
           </button>
-        )
+        </div>
       }
     >
+      {reportError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">
+          {reportError}
+        </p>
+      )}
       {disbursementError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">
           {disbursementError}

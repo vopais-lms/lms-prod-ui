@@ -166,13 +166,7 @@ export function MainAppShell() {
                         <Route path="loans" element={<LoanApplicationsPage />} />
                         <Route
                             path="loans/new"
-                            element={
-                                isCustomerProfile() ? (
-                                    <Navigate to="/app/loans" replace />
-                                ) : (
-                                    <LoanApplicationCreatePage />
-                                )
-                            }
+                            element={<LoanApplicationCreatePage />}
                         />
                         <Route
                             path="loans/:eid/moratorium-requests/new"

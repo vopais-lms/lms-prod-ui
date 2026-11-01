@@ -17,11 +17,7 @@ import {
   LOAN_TIME_UNIT_OPTIONS,
 } from '../../../constants/loanApplicationFields';
 import type { Customer, LoanType } from '../../../apis/types';
-import {
-  getStoredCustomerEid,
-  getStoredDisplayName,
-  isCustomerProfile,
-} from '../../../utils/authSession';
+import { isCustomerProfile } from '../../../utils/authSession';
 
 const emptyForm = {
   loan_type_id: '',
@@ -45,58 +41,146 @@ const emptyForm = {
 
 export function LoanApplicationCreatePage() {
   const navigate = useNavigate();
+  const loggedInCustomer = isCustomerProfile();
   const [form, setForm] = useState(emptyForm);
+  const [requestedAmount, setRequestedAmount] = useState('');
+  const [customerLoanTypeId, setCustomerLoanTypeId] = useState('');
+  const [customerLoanTypes, setCustomerLoanTypes] = useState<LoanType[]>([]);
+  const [loadingCustomerTypes, setLoadingCustomerTypes] = useState(loggedInCustomer);
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerLabel, setCustomerLabel] = useState('');
-  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadingOptions, setLoadingOptions] = useState(!loggedInCustomer);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const loggedInCustomer = isCustomerProfile();
+  const [otpRedisKey, setOtpRedisKey] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpConfirmed, setOtpConfirmed] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   useEffect(() => {
+    if (!loggedInCustomer) {
+      return;
+    }
+    const loadLoanTypes = async () => {
+      setLoadingCustomerTypes(true);
+      try {
+        const loanTypesRes = await loanTypesApi.list({ page: 1, per_page: 100 });
+        setCustomerLoanTypes(loanTypesRes.data.filter((loanType) => loanType.status));
+      } catch (err) {
+        console.error('Failed to load loan types', err);
+        setSubmitError('Failed to load loan types.');
+      } finally {
+        setLoadingCustomerTypes(false);
+      }
+    };
+    loadLoanTypes();
+  }, [loggedInCustomer]);
+
+  useEffect(() => {
+    if (loggedInCustomer) {
+      return;
+    }
+
     const loadOptions = async () => {
       setLoadingOptions(true);
       try {
-        const loanTypesRes = await loanTypesApi.list({ page: 1, per_page: 100 });
+        const [loanTypesRes, customersRes] = await Promise.all([
+          loanTypesApi.list({ page: 1, per_page: 100 }),
+          customersApi.list({ page: 1, per_page: 100 }),
+        ]);
         setLoanTypes(loanTypesRes.data.filter((lt) => lt.status));
-
-        if (isCustomerProfile()) {
-          const customerEid = getStoredCustomerEid();
-          if (!customerEid) {
-            setSubmitError('Logged-in customer is not available for this session.');
-            return;
-          }
-          const customer = await customersApi.get(customerEid);
-          const label = customer.email
-            ? `${customer.name} (${customer.email})`
-            : customer.name || getStoredDisplayName() || customerEid;
-          setCustomers([customer]);
-          setCustomerLabel(label);
-          setForm((prev) => ({ ...prev, customer_eid: customer.eid }));
-          return;
-        }
-
-        const customersRes = await customersApi.list({ page: 1, per_page: 100 });
         setCustomers(customersRes.data);
       } catch (err) {
         console.error('Failed to load form options', err);
-        setSubmitError(
-          isCustomerProfile()
-            ? 'Failed to load loan types or the logged-in customer.'
-            : 'Failed to load loan types or customers.',
-        );
+        setSubmitError('Failed to load loan types or customers.');
       } finally {
         setLoadingOptions(false);
       }
     };
     loadOptions();
-  }, []);
+  }, [loggedInCustomer]);
+
+  const resetOtp = () => {
+    setOtpRedisKey('');
+    setOtpCode('');
+    setOtpConfirmed(false);
+  };
+
+  const handleGenerateOtp = async () => {
+    if (!form.customer_eid) {
+      setSubmitError('Select a customer before generating an OTP.');
+      return;
+    }
+    setOtpLoading(true);
+    setSubmitError(null);
+    try {
+      const generated = await loanApplicationsApi.generateCustomerOtp(form.customer_eid);
+      setOtpRedisKey(generated.redis_key);
+      setOtpCode('');
+      setOtpConfirmed(false);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to generate the customer OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpRedisKey || !otpCode) {
+      setSubmitError('Generate an OTP and enter the code sent to the customer.');
+      return;
+    }
+    setOtpLoading(true);
+    setSubmitError(null);
+    try {
+      await loanApplicationsApi.verifyCustomerOtp({
+        customer_eid: form.customer_eid,
+        redis_key: otpRedisKey,
+        otp: otpCode,
+      });
+      setOtpConfirmed(true);
+    } catch (err: any) {
+      setOtpConfirmed(false);
+      setSubmitError(err.message || 'The customer OTP could not be confirmed');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleCustomerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError(null);
+    const amount = Number(requestedAmount);
+    if (!customerLoanTypeId) {
+      setSubmitError('Loan type is required.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      setSubmitError('Requested loan amount must be greater than zero.');
+      return;
+    }
+    setSubmitLoading(true);
+    try {
+      const created = await loanApplicationsApi.customerCreate({
+        requested_loan_amount: amount,
+        loan_type_id: Number(customerLoanTypeId),
+      });
+      navigate(`/app/loans/${created.eid}`);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to create loan application');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
 
+    if (!otpConfirmed || !otpRedisKey) {
+      setSubmitError('Confirm the customer OTP before creating a loan application.');
+      return;
+    }
     if (!form.loan_type_id || !form.customer_eid) {
       setSubmitError('Loan type and customer are required.');
       return;
@@ -145,7 +229,8 @@ export function LoanApplicationCreatePage() {
     try {
       const created = await loanApplicationsApi.create({
         loan_type_id: Number(form.loan_type_id),
-        customer_eid: loggedInCustomer ? getStoredCustomerEid() : form.customer_eid,
+        customer_eid: form.customer_eid,
+        otp_redis_key: otpRedisKey,
         principal_disbursement_amount: principal,
         interest_rate: interestRate,
         emi_schedule: form.emi_schedule,
@@ -170,10 +255,67 @@ export function LoanApplicationCreatePage() {
     }
   };
 
+  if (loggedInCustomer) {
+    return (
+      <PageShell
+        title="New Loan Application"
+        subtitle="Choose a loan type and requested amount"
+        actions={
+          <button
+            onClick={() => navigate('/app/loans')}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-[#6B7280] hover:text-[#111827] transition-colors"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back to list
+          </button>
+        }
+      >
+        <div className="max-w-3xl bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm">
+          {submitError && (
+            <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {submitError}
+            </p>
+          )}
+            <form onSubmit={handleCustomerSubmit} className="space-y-5">
+              <FormField label="Loan Type" required>
+                <FormSelect
+                  value={customerLoanTypeId}
+                  onChange={setCustomerLoanTypeId}
+                  options={customerLoanTypes.map((loanType) => ({
+                    value: String(loanType.id),
+                    label: loanType.name,
+                  }))}
+                  placeholder="Select loan type"
+                  disabled={loadingCustomerTypes}
+                />
+              </FormField>
+              <FormField label="Requested loan amount" required>
+                <FormInput
+                  type="number"
+                  value={requestedAmount}
+                  onChange={setRequestedAmount}
+                  placeholder="e.g. 250000"
+                />
+              </FormField>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={submitLoading || loadingCustomerTypes}
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                >
+                  {submitLoading ? 'Saving…' : 'Continue to application form'}
+                </button>
+              </div>
+            </form>
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       title="New Loan Application"
-      subtitle="Step 1 — Enter core loan terms"
+      subtitle="Step 1 — Confirm the customer, then enter core loan terms"
       actions={
         <button
           onClick={() => navigate('/app/loans')}
@@ -192,6 +334,55 @@ export function LoanApplicationCreatePage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <FormField label="Customer" required>
+            <FormSelect
+              value={form.customer_eid}
+              onChange={(v) => {
+                resetOtp();
+                setForm((prev) => ({ ...prev, customer_eid: v }));
+              }}
+              options={customers.map((c) => ({
+                value: c.eid,
+                label: `${c.name} (${c.email})`,
+              }))}
+              placeholder="Select customer"
+              disabled={loadingOptions}
+            />
+          </FormField>
+
+          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleGenerateOtp}
+                disabled={loadingOptions || otpLoading || !form.customer_eid}
+                className="px-4 py-2 text-sm font-medium text-[#374151] border border-[#E5E7EB] bg-white rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
+              >
+                {otpLoading && !otpRedisKey ? 'Sending…' : 'Generate OTP'}
+              </button>
+              {otpConfirmed && (
+                <span className="text-sm font-medium text-emerald-700">Customer OTP confirmed</span>
+              )}
+            </div>
+            <FormField label="Customer OTP">
+              <FormInput
+                value={otpCode}
+                onChange={setOtpCode}
+                placeholder="Enter the code sent to the customer"
+                disabled={!otpRedisKey || otpConfirmed}
+              />
+            </FormField>
+            <button
+              type="button"
+              onClick={handleVerifyOtp}
+              disabled={!otpRedisKey || otpConfirmed || otpLoading || !otpCode}
+              className="px-4 py-2 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] disabled:opacity-50"
+            >
+              Verify OTP
+            </button>
+          </div>
+
+          <fieldset disabled={!otpConfirmed} className="space-y-5 border-0 p-0 m-0 min-w-0">
           <FormField label="Loan Type" required>
             <FormSelect
               value={form.loan_type_id}
@@ -200,27 +391,6 @@ export function LoanApplicationCreatePage() {
               placeholder="Select loan type"
               disabled={loadingOptions}
             />
-          </FormField>
-
-          <FormField label="Customer" required>
-            {loggedInCustomer ? (
-              <FormInput
-                value={customerLabel}
-                onChange={() => {}}
-                disabled
-              />
-            ) : (
-              <FormSelect
-                value={form.customer_eid}
-                onChange={(v) => setForm((prev) => ({ ...prev, customer_eid: v }))}
-                options={customers.map((c) => ({
-                  value: c.eid,
-                  label: `${c.name} (${c.email})`,
-                }))}
-                placeholder="Select customer"
-                disabled={loadingOptions}
-              />
-            )}
           </FormField>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -378,11 +548,12 @@ export function LoanApplicationCreatePage() {
               </FormField>
             </div>
           </div>
+          </fieldset>
 
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              disabled={submitLoading || loadingOptions}
+              disabled={submitLoading || loadingOptions || !otpConfirmed}
               className="px-5 py-2.5 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
             >
               {submitLoading ? 'Saving…' : 'Save & Continue'}

@@ -84,7 +84,7 @@ export function LoanApplicationSubmittedSections({
 }: LoanApplicationSubmittedSectionsProps) {
   const [activeSection, setActiveSection] =
     useState<LoanApplicationDetailSectionId>(
-      applicationFormEditor ? 'application-form' : 'overview',
+      'application-form',
     );
 
   const fetchedSectionsRef = useRef<Set<LoanApplicationDetailSectionId>>(new Set());
@@ -123,7 +123,7 @@ export function LoanApplicationSubmittedSections({
       application.is_single_disbursement !== false &&
       activeSection === 'disbursement-requests'
     ) {
-      setActiveSection('overview');
+      setActiveSection('application-form');
     }
   }, [application.is_single_disbursement, activeSection]);
 
@@ -635,6 +635,36 @@ export function LoanApplicationSubmittedSections({
           <p className="text-sm text-[#6B7280]">{activeMeta?.description}</p>
         </div>
         <div className="p-6">{renderSectionContent()}</div>
+        {(activeSection === 'application-form' || activeSection === 'overview') && (
+          <div className="px-6 py-4 border-t border-[#E5E7EB] flex justify-between gap-3">
+            {activeSection === 'overview' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSection('application-form');
+                  window.scrollTo({ top: 0 });
+                }}
+                className="px-4 py-2 text-sm font-medium text-[#374151] border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB]"
+              >
+                Previous: Details
+              </button>
+            ) : (
+              <span />
+            )}
+            {activeSection === 'application-form' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSection('overview');
+                  window.scrollTo({ top: 0 });
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-[#2563EB] rounded-lg hover:bg-[#1D4ED8]"
+              >
+                Next: Core loan terms
+              </button>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );

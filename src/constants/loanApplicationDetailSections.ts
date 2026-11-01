@@ -20,15 +20,15 @@ export type LoanApplicationDetailSection = {
 
 export const LOAN_APPLICATION_DETAIL_SECTIONS: LoanApplicationDetailSection[] = [
     {
-        id: 'overview',
-        label: 'Overview',
-        description: 'Core loan application fields',
+        id: 'application-form',
+        label: 'Details',
+        description: 'Filled loan application form',
         lazy: false,
     },
     {
-        id: 'application-form',
-        label: 'Application form',
-        description: 'Submitted Loan Type specific values',
+        id: 'overview',
+        label: 'Core loan terms',
+        description: 'Core loan application fields',
         lazy: false,
     },
     {
