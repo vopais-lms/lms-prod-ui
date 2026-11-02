@@ -430,6 +430,23 @@ export interface AnalyticsRatiosResponse {
     under_process_to_disbursed_ratio: number | null;
 }
 
+export interface AnalyticsSummaryResponse {
+    healthy_count: number;
+    not_yet_disbursed_count: number;
+    collections_last_12_months: number;
+    disbursements_last_12_months: number;
+}
+
+export interface AnalyticsOfficerPoint {
+    loan_officer_eid: string | null;
+    name: string;
+    loan_count: number;
+}
+
+export interface AnalyticsLoansByOfficerResponse {
+    data: AnalyticsOfficerPoint[];
+}
+
 // --- Underwriting / Parameters ---
 
 export type ParameterType =

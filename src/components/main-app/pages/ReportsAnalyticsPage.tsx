@@ -14,7 +14,8 @@ import {
 import { analyticsApi } from '../../../apis/analytics';
 import type {
   AnalyticsMonthPoint,
-  AnalyticsRatiosResponse,
+  AnalyticsOfficerPoint,
+  AnalyticsSummaryResponse,
 } from '../../../apis/types';
 import { PageShell } from '../shared/PageShell';
 
@@ -38,18 +39,21 @@ function defaultMonthRange(count = 12): { start_month: string; end_month: string
   };
 }
 
-function formatRatio(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return value.toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  });
-}
-
 function formatCount(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
   return value.toLocaleString();
 }
+
+function formatMoney(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return `₹${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+const WINDOW_OPTIONS = [
+  { months: 3, label: 'Last 3 months' },
+  { months: 6, label: 'Last 6 months' },
+  { months: 12, label: 'Last 12 months' },
+];
 
 type SeriesState = {
   startMonth: string;
@@ -198,64 +202,215 @@ function SeriesChartCard({
   );
 }
 
+type WindowSeriesState = SeriesState & { months: number };
+
+function createWindowSeriesState(months = 3): WindowSeriesState {
+  const defaults = defaultMonthRange(months);
+  return {
+    months,
+    startMonth: defaults.start_month,
+    endMonth: defaults.end_month,
+    data: [],
+    loading: true,
+    error: null,
+  };
+}
+
+function WindowChartCard({
+  title,
+  subtitle,
+  valueLabel,
+  barColor,
+  state,
+  onWindowChange,
+  formatValue,
+}: {
+  title: string;
+  subtitle: string;
+  valueLabel: string;
+  barColor: string;
+  state: WindowSeriesState;
+  onWindowChange: (months: number) => void;
+  formatValue?: (value: number) => string;
+}) {
+  const chartData = state.data.map((point) => ({
+    month: point.month,
+    value: point.value,
+  }));
+
+  return (
+    <section className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-[#111827]">{title}</h2>
+          <p className="text-sm text-[#6B7280] mt-1">{subtitle}</p>
+        </div>
+        <label className="flex flex-col gap-1 text-xs text-[#6B7280]">
+          Period
+          <select
+            aria-label={`${title} period`}
+            value={state.months}
+            onChange={(event) => onWindowChange(Number(event.target.value))}
+            className="px-2.5 py-1.5 text-sm text-[#111827] border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/40"
+          >
+            {WINDOW_OPTIONS.map((option) => (
+              <option key={option.months} value={option.months}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {state.error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {state.error}
+        </p>
+      )}
+      <div className="h-72 w-full">
+        {state.loading ? (
+          <div className="h-full flex items-center justify-center text-sm text-[#6B7280]">
+            Loading…
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-sm text-[#6B7280]">
+            No data for this range
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+              <Tooltip
+                formatter={(value: number) => [
+                  formatValue ? formatValue(value) : value.toLocaleString(),
+                  valueLabel,
+                ]}
+              />
+              <Bar dataKey="value" fill={barColor} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+  loading,
+  error,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm">
+      <p className="text-sm text-[#6B7280]">{label}</p>
+      {loading ? (
+        <p className="mt-3 text-sm text-[#6B7280]">Loading…</p>
+      ) : error ? (
+        <p className="mt-3 text-sm text-red-600">{error}</p>
+      ) : (
+        <>
+          <p className="mt-2 text-3xl font-bold text-[#111827]">{value}</p>
+          <p className="mt-2 text-sm text-[#6B7280]">{hint}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ReportsAnalyticsPage() {
-  const [ratios, setRatios] = useState<AnalyticsRatiosResponse | null>(null);
-  const [ratiosLoading, setRatiosLoading] = useState(true);
-  const [ratiosError, setRatiosError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<AnalyticsSummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  const [disbursements, setDisbursements] = useState<SeriesState>(createSeriesState);
+  const [officerEid, setOfficerEid] = useState('');
+  const [officerOptions, setOfficerOptions] = useState<AnalyticsOfficerPoint[]>([]);
+  const [officerRows, setOfficerRows] = useState<AnalyticsOfficerPoint[]>([]);
+  const [officerLoading, setOfficerLoading] = useState(true);
+  const [officerError, setOfficerError] = useState<string | null>(null);
+
+  const [loansDisbursed, setLoansDisbursed] = useState<WindowSeriesState>(
+    () => createWindowSeriesState(3),
+  );
+  const [disbursementAmounts, setDisbursementAmounts] = useState<WindowSeriesState>(
+    () => createWindowSeriesState(3),
+  );
+  const [collections, setCollections] = useState<WindowSeriesState>(
+    () => createWindowSeriesState(3),
+  );
   const [npa, setNpa] = useState<SeriesState>(createSeriesState);
-  const [collections, setCollections] = useState<SeriesState>(createSeriesState);
 
-  const loadRatios = useCallback(async () => {
-    setRatiosLoading(true);
-    setRatiosError(null);
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
     try {
-      const res = await analyticsApi.ratios();
-      setRatios(res);
+      setSummary(await analyticsApi.summary());
     } catch (err: any) {
-      setRatios(null);
-      setRatiosError(err.message || 'Failed to load ratios');
+      setSummary(null);
+      setSummaryError(err.message || 'Failed to load summary');
     } finally {
-      setRatiosLoading(false);
+      setSummaryLoading(false);
     }
   }, []);
 
-  const loadSeries = useCallback(
+  const loadOfficers = useCallback(async (loanOfficerEid: string) => {
+    setOfficerLoading(true);
+    setOfficerError(null);
+    try {
+      const res = await analyticsApi.loansByOfficer(loanOfficerEid || undefined);
+      const rows = res.data || [];
+      setOfficerRows(rows);
+      if (!loanOfficerEid) {
+        setOfficerOptions(rows.filter((row) => row.loan_officer_eid));
+      }
+    } catch (err: any) {
+      setOfficerRows([]);
+      setOfficerError(err.message || 'Failed to load loans by officer');
+    } finally {
+      setOfficerLoading(false);
+    }
+  }, []);
+
+  const loadWindowSeries = useCallback(
     async (
-      kind: 'disbursements' | 'npa' | 'collections',
-      startMonth: string,
-      endMonth: string,
+      kind: 'loans' | 'amounts' | 'collections',
+      months: number,
     ) => {
       const setState =
-        kind === 'disbursements'
-          ? setDisbursements
-          : kind === 'npa'
-            ? setNpa
+        kind === 'loans'
+          ? setLoansDisbursed
+          : kind === 'amounts'
+            ? setDisbursementAmounts
             : setCollections;
-
-      if (!MONTH_KEY_RE.test(startMonth) || !MONTH_KEY_RE.test(endMonth)) {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: 'Months must be in MM/YYYY format (e.g. 07/2026).',
-        }));
-        return;
-      }
-
-      setState((prev) => ({ ...prev, loading: true, error: null }));
+      const range = defaultMonthRange(months);
+      setState((prev) => ({
+        ...prev,
+        months,
+        startMonth: range.start_month,
+        endMonth: range.end_month,
+        loading: true,
+        error: null,
+      }));
       try {
-        const params = { start_month: startMonth, end_month: endMonth };
+        const params = { start_month: range.start_month, end_month: range.end_month };
         const res =
-          kind === 'disbursements'
+          kind === 'loans'
             ? await analyticsApi.disbursementsByMonth(params)
-            : kind === 'npa'
-              ? await analyticsApi.npaByMonth(params)
+            : kind === 'amounts'
+              ? await analyticsApi.disbursementAmountsByMonth(params)
               : await analyticsApi.collectionsByMonth(params);
         setState((prev) => ({
           ...prev,
-          startMonth: res.start_month || startMonth,
-          endMonth: res.end_month || endMonth,
+          startMonth: res.start_month || range.start_month,
+          endMonth: res.end_month || range.end_month,
           data: res.data || [],
           loading: false,
           error: null,
@@ -271,74 +426,174 @@ export function ReportsAnalyticsPage() {
     [],
   );
 
+  const loadNpa = useCallback(async (startMonth: string, endMonth: string) => {
+    if (!MONTH_KEY_RE.test(startMonth) || !MONTH_KEY_RE.test(endMonth)) {
+      setNpa((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'Months must be in MM/YYYY format (e.g. 07/2026).',
+      }));
+      return;
+    }
+    setNpa((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const res = await analyticsApi.npaByMonth({
+        start_month: startMonth,
+        end_month: endMonth,
+      });
+      setNpa((prev) => ({
+        ...prev,
+        startMonth: res.start_month || startMonth,
+        endMonth: res.end_month || endMonth,
+        data: res.data || [],
+        loading: false,
+        error: null,
+      }));
+    } catch (err: any) {
+      setNpa((prev) => ({
+        ...prev,
+        loading: false,
+        error: err.message || 'Failed to load series',
+      }));
+    }
+  }, []);
+
   useEffect(() => {
-    loadRatios();
+    loadSummary();
+    loadOfficers('');
+    loadWindowSeries('loans', 3);
+    loadWindowSeries('amounts', 3);
+    loadWindowSeries('collections', 3);
     const defaults = defaultMonthRange(12);
-    loadSeries('disbursements', defaults.start_month, defaults.end_month);
-    loadSeries('npa', defaults.start_month, defaults.end_month);
-    loadSeries('collections', defaults.start_month, defaults.end_month);
-  }, [loadRatios, loadSeries]);
+    loadNpa(defaults.start_month, defaults.end_month);
+  }, [loadSummary, loadOfficers, loadWindowSeries, loadNpa]);
+
+  const officerChartData = officerRows.map((row) => ({
+    name: row.name,
+    loans: row.loan_count,
+  }));
 
   return (
     <PageShell
       title="Reports"
-      subtitle="Disbursement, NPA, and collection analytics"
+      subtitle="Portfolio counts, officers, disbursements, and collections"
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm">
-          <p className="text-sm text-[#6B7280]">Healthy : NPA</p>
-          {ratiosLoading ? (
-            <p className="mt-3 text-sm text-[#6B7280]">Loading…</p>
-          ) : ratiosError ? (
-            <p className="mt-3 text-sm text-red-600">{ratiosError}</p>
-          ) : (
-            <>
-              <p className="mt-2 text-3xl font-bold text-[#111827]">
-                {formatRatio(ratios?.healthy_to_npa_ratio)}
-              </p>
-              <p className="mt-2 text-sm text-[#6B7280]">
-                {formatCount(ratios?.healthy_count)} healthy · {formatCount(ratios?.npa_count)} NPA
-              </p>
-            </>
-          )}
-        </div>
-
-        <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm">
-          <p className="text-sm text-[#6B7280]">Under process : Disbursed</p>
-          {ratiosLoading ? (
-            <p className="mt-3 text-sm text-[#6B7280]">Loading…</p>
-          ) : ratiosError ? (
-            <p className="mt-3 text-sm text-red-600">{ratiosError}</p>
-          ) : (
-            <>
-              <p className="mt-2 text-3xl font-bold text-[#111827]">
-                {formatRatio(ratios?.under_process_to_disbursed_ratio)}
-              </p>
-              <p className="mt-2 text-sm text-[#6B7280]">
-                {formatCount(ratios?.under_process_count)} under process ·{' '}
-                {formatCount(ratios?.disbursed_count)} disbursed
-              </p>
-            </>
-          )}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <SummaryCard
+          label="Healthy loans"
+          value={formatCount(summary?.healthy_count)}
+          hint="Disbursed loans that are not NPA"
+          loading={summaryLoading}
+          error={summaryError}
+        />
+        <SummaryCard
+          label="Not yet disbursed"
+          value={formatCount(summary?.not_yet_disbursed_count)}
+          hint="Loans with nothing disbursed, excluding rejected"
+          loading={summaryLoading}
+          error={summaryError}
+        />
+        <SummaryCard
+          label="Collections"
+          value={formatMoney(summary?.collections_last_12_months)}
+          hint="Approved amounts, last 12 months"
+          loading={summaryLoading}
+          error={summaryError}
+        />
+        <SummaryCard
+          label="Disbursements"
+          value={formatMoney(summary?.disbursements_last_12_months)}
+          hint="Disbursed amounts, last 12 months"
+          loading={summaryLoading}
+          error={summaryError}
+        />
       </div>
 
-      <SeriesChartCard
-        title="Disbursements by month"
-        subtitle="Distinct loans with at least one disbursed disbursement in the month"
-        valueLabel="Loans"
-        chartType="bar"
-        barColor="#2563EB"
-        state={disbursements}
-        onStartChange={(value) =>
-          setDisbursements((prev) => ({ ...prev, startMonth: value }))
-        }
-        onEndChange={(value) =>
-          setDisbursements((prev) => ({ ...prev, endMonth: value }))
-        }
-        onApply={() =>
-          loadSeries('disbursements', disbursements.startMonth, disbursements.endMonth)
-        }
+      <section className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-[#111827]">Loans by officer</h2>
+            <p className="text-sm text-[#6B7280] mt-1">
+              Loan count for each officer. Unassigned loans stay in the full view.
+            </p>
+          </div>
+          <label className="flex flex-col gap-1 text-xs text-[#6B7280]">
+            Loan officer
+            <select
+              aria-label="Loan officer"
+              value={officerEid}
+              onChange={(event) => {
+                const next = event.target.value;
+                setOfficerEid(next);
+                loadOfficers(next);
+              }}
+              className="min-w-48 px-2.5 py-1.5 text-sm text-[#111827] border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/40"
+            >
+              <option value="">All officers</option>
+              {officerOptions.map((officer) => (
+                <option key={officer.loan_officer_eid} value={officer.loan_officer_eid}>
+                  {officer.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {officerError && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {officerError}
+          </p>
+        )}
+        <div className="h-72 w-full">
+          {officerLoading ? (
+            <div className="h-full flex items-center justify-center text-sm text-[#6B7280]">
+              Loading…
+            </div>
+          ) : officerChartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-[#6B7280]">
+              No loans for this officer
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={officerChartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} interval={0} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6B7280' }} />
+                <Tooltip formatter={(value: number) => [value.toLocaleString(), 'Loans']} />
+                <Bar dataKey="loans" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <WindowChartCard
+          title="Loans disbursed per month"
+          subtitle="Distinct loans with at least one disbursed disbursement in the month"
+          valueLabel="Loans"
+          barColor="#2563EB"
+          state={loansDisbursed}
+          onWindowChange={(months) => loadWindowSeries('loans', months)}
+        />
+        <WindowChartCard
+          title="Disbursements by month"
+          subtitle="Sum of disbursed disbursement amounts"
+          valueLabel="Amount"
+          barColor="#0F766E"
+          state={disbursementAmounts}
+          onWindowChange={(months) => loadWindowSeries('amounts', months)}
+          formatValue={formatMoney}
+        />
+      </div>
+
+      <WindowChartCard
+        title="Collections by month"
+        subtitle="Sum of approved collection amounts"
+        valueLabel="Amount"
+        barColor="#059669"
+        state={collections}
+        onWindowChange={(months) => loadWindowSeries('collections', months)}
+        formatValue={formatMoney}
       />
 
       <SeriesChartCard
@@ -350,28 +605,7 @@ export function ReportsAnalyticsPage() {
         state={npa}
         onStartChange={(value) => setNpa((prev) => ({ ...prev, startMonth: value }))}
         onEndChange={(value) => setNpa((prev) => ({ ...prev, endMonth: value }))}
-        onApply={() => loadSeries('npa', npa.startMonth, npa.endMonth)}
-      />
-
-      <SeriesChartCard
-        title="Collections by month"
-        subtitle="Sum of approved collection amounts by collection month"
-        valueLabel="Amount"
-        chartType="bar"
-        barColor="#059669"
-        state={collections}
-        onStartChange={(value) =>
-          setCollections((prev) => ({ ...prev, startMonth: value }))
-        }
-        onEndChange={(value) =>
-          setCollections((prev) => ({ ...prev, endMonth: value }))
-        }
-        onApply={() =>
-          loadSeries('collections', collections.startMonth, collections.endMonth)
-        }
-        formatValue={(value) =>
-          `₹${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-        }
+        onApply={() => loadNpa(npa.startMonth, npa.endMonth)}
       />
     </PageShell>
   );
